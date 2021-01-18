@@ -1,0 +1,99 @@
+{
+  "pluginAlias": "AirzoneCloud",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Homebridge plugin for Airzone Cloud",
+  "footerDisplay": "For a detailed description, see the [wiki](https://github.com/fjhorrillo/homebridge-airzone-cloud/wiki)",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "description": "Plugin name as displayed in the homebridge log.",
+        "type": "string",
+        "required": true,
+        "default": "AirzoneCloud"
+      },
+      "login": {
+        "title": "Airzone Cloud credentials",
+        "type": "object",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string",
+            "format": "email",
+            "required": true,
+            "placeholder": "email@domain.com"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string",
+            "required": true,
+            "placeholder": "password"
+          }
+        }
+      },
+      "user_agent": {
+        "title": "User Agent",
+        "description": "Allow to change default user agent if set.",
+        "type": "string",
+        "required": true,
+        "placeholder": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.2 Safari/605.1.15",
+        "default": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.2 Safari/605.1.15"
+      },
+      "base_url": {
+        "title": "Base URL",
+        "description": "Allow to change base url of the Airzone Cloud API if set.",
+        "type": "string",
+        "format": "uri",
+        "required": true,
+        "placeholder": "https://www.airzonecloud.com",
+        "default": "https://www.airzonecloud.com"
+      }
+    }
+  },
+  "form": [
+    "name",
+    {
+      "type": "fieldset",
+      "expandable": false,
+      "title": "Login",
+      "description": "Login credentials used to connect on Airzone Cloud website or app.",
+      "items": [
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            {
+              "type": "flex",
+              "flex-flow": "column",
+              "items": [
+                "login.email"
+              ]
+            },
+            {
+              "type": "flex",
+              "flex-flow": "column",
+              "items": [
+                {
+                  "key": "login.password",
+                  "type": "password"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "expandable": true,
+      "title": "Advanced",
+      "description": "Don't change these, unless you understand what you're doing.",
+      "items": [
+        "user_agent",
+        "base_url"
+      ]
+    }
+  ]
+}
