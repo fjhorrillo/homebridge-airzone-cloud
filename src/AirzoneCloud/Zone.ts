@@ -139,28 +139,29 @@ export class Zone {
 
   /* Turn zone on */
   public async turn_on() {
-    this.log.info(`call turn_on() on ${this.str_complete()}`);
+    this.log.debug(`call turn_on() on ${this.str_complete()}`);
     await this._send_event('state', 1);
     this._data['state'] = '1';
   }
 
   /* Turn zone off */
   public async turn_off() {
-    this.log.info(`call turn_off() on ${this.str_complete()}`);
+    this.log.debug(`call turn_off() on ${this.str_complete()}`);
     await this._send_event('state', 0);
     this._data['state'] = '0';
   }
 
   /* Set target_temperature for this zone */
   public async set_temperature(temperature) {
-    this.log.info(`call set_temperature(${temperature}) on ${this.str_complete()}`);
     temperature = parseFloat(temperature);
-    if (!this.min_temp && temperature < this.min_temp!) {
+    // Limit with min and max
+    if (temperature < this.min_temp!) {
       temperature = this.min_temp;
     }
-    if (!this.max_temp && temperature > this.max_temp!) {
+    if (temperature > this.max_temp!) {
       temperature = this.max_temp;
     }
+    this.log.debug(`call set_temperature(${temperature}) on ${this.str_complete()} (min: ${this.min_temp} & max: ${this.max_temp})`);
     await this._send_event('consign', temperature.toFixed(1));
     this._data['consign'] = temperature.toFixed(1);
   }
