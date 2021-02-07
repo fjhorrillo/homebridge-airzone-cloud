@@ -71,7 +71,7 @@ export class Zone {
 
   get current_humidity(): number | undefined {
     if (this._data.humidity) {
-      return parseFloat(this._data.get.humidity);
+      return parseFloat(this._data.humidity);
     }
     return;
   }
