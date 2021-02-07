@@ -19,6 +19,7 @@ export interface DeviceType {
   model: string;
   firmwareRevision: string;
   softwareRevision: string;
+  displayUnits: number;
 }
 
 export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
@@ -122,6 +123,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
           model: zone.class,
           firmwareRevision: zone.system.firmware_system,
           softwareRevision: zone.system.firmware_ws,
+          displayUnits: 0, // 0:CELSIUS, 1:FAHRENHEIT
         }, zone);
       }
     }

@@ -10,14 +10,7 @@ import { AirzoneCloudHomebridgePlatform } from './platform';
  */
 export class AirzoneCloudPlatformAccessory {
   private service: Service;
-
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private initStates = {
-    TemperatureDisplayUnits: 0,    // 0:CELSIUS, 1:FAHRENHEIT
-  };
+  private displayUnits: number; // 0:CELSIUS, 1:FAHRENHEIT
 
   constructor(
     private readonly platform: AirzoneCloudHomebridgePlatform,
@@ -32,6 +25,7 @@ export class AirzoneCloudPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
       .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision)
       .setCharacteristic(this.platform.Characteristic.SoftwareRevision, accessory.context.device.softwareRevision);
+    this.displayUnits = accessory.context.device.displayUnits;
 
     // get the Thermostat service if it exists, otherwise create a new Thermostat service
     // you can create multiple services for each accessory
@@ -150,7 +144,7 @@ export class AirzoneCloudPlatformAccessory {
         break;
     }
 
-    this.platform.log.info(`${this.zone.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
       `${currentHeatingCoolingState} ([${system.mode_raw}]${system.mode}: ${system.mode_description})`);
 
     // you must call the callback function
@@ -237,7 +231,7 @@ export class AirzoneCloudPlatformAccessory {
       targetHeatingCoolingState = 0;
     }
 
-    this.platform.log.info(`${this.zone.name}: Get Characteristic TargetHeatingCoolingState -> ` +
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic TargetHeatingCoolingState -> ` +
       `${targetHeatingCoolingState} ([${this.zone.mode_raw}]${this.zone.mode}: ${this.zone.mode_description})`);
 
     // you must call the callback function
@@ -251,9 +245,10 @@ export class AirzoneCloudPlatformAccessory {
     await this.zone.refresh();
 
     // CurrentTemperature => Min Value 0, Max Value 100, Min Step 0.1
-    const currentTemperature = this.zone.current_temperature;
+    const currentTemperature = this.displayUnits ? this.toFahrenheit(this.zone.current_temperature!) : this.zone.current_temperature;
 
-    this.platform.log.debug(`${this.zone.name}: Get Characteristic CurrentTemperature -> ${currentTemperature}`);
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic CurrentTemperature -> ` +
+      `${currentTemperature}º${this.displayUnits?'F':'C'}`);
 
     // you must call the callback function
     // the first argument should be null if there were no errors
@@ -269,10 +264,14 @@ export class AirzoneCloudPlatformAccessory {
     // Refres data from Airzone Cloud
     await this.zone.refresh();
 
+    // Convert to Celsius if it is Fahrenheit
+    if (this.displayUnits) {
+      value = this.toCelsius(value as number);
+    }
     // Min Value 10, Max Value 38, Min Step 0.1
     await this.zone.set_temperature(value);
 
-    this.platform.log.info(`${this.zone.name}: Set Characteristic TargetTemperature -> ${value}`);
+    this.platform.log.info(`${this.zone.name}: Set Characteristic TargetTemperature -> ${value}º${this.displayUnits?'F':'C'}`);
 
     // you must call the callback function
     callback(null);
@@ -283,9 +282,9 @@ export class AirzoneCloudPlatformAccessory {
     await this.zone.refresh();
 
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
-    const targetTemperature = this.zone.target_temperature;
+    const targetTemperature = this.displayUnits ? this.toFahrenheit(this.zone.target_temperature!) : this.zone.target_temperature;
 
-    this.platform.log.debug(`${this.zone.name}: Get Characteristic TargetTemperature -> ${targetTemperature}`);
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic TargetTemperature -> ${targetTemperature}º${this.displayUnits?'F':'C'}`);
 
     // you must call the callback function
     // the first argument should be null if there were no errors
@@ -296,23 +295,36 @@ export class AirzoneCloudPlatformAccessory {
   setTemperatureDisplayUnits(value: CharacteristicValue, callback: CharacteristicSetCallback) {
 
     // implement your own code to set the TemperatureDisplayUnits
-    this.initStates.TemperatureDisplayUnits = value as number;
+    this.displayUnits = value as number;
 
-    this.platform.log.info(`${this.zone.name}: Set Characteristic TemperatureDisplayUnits -> ${value}`);
+    this.platform.log.info(`${this.zone.name}: Set Characteristic TemperatureDisplayUnits -> ${value} (º${this.displayUnits?'F':'C'})`);
 
     // you must call the callback function
     callback(null);
   }
 
   getTemperatureDisplayUnits(callback: CharacteristicGetCallback) {
-    const temperatureDisplayUnits = this.initStates.TemperatureDisplayUnits;
+    const temperatureDisplayUnits = this.displayUnits;
 
-    this.platform.log.debug(`${this.zone.name}: Get Characteristic TemperatureDisplayUnits -> ${temperatureDisplayUnits}`);
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic TemperatureDisplayUnits -> ` +
+      `${temperatureDisplayUnits} (º${this.displayUnits?'F':'C'})`);
 
     // you must call the callback function
     // the first argument should be null if there were no errors
     // the second argument should be the value to return
     callback(null, temperatureDisplayUnits);
+  }
+
+  toFahrenheit(temperature: number): number {
+    // Convert from Celsius to Fahrenheit
+    const fahrenheit = (temperature * 9 / 5) + 32;
+    return Math.round(fahrenheit * 10) / 10;
+  }
+
+  toCelsius(temperature: number): number {
+    // Convert from Fahrenheit to Celsius
+    const celsius = (temperature - 32) * 5 / 9;
+    return Math.round(celsius * 10) / 10;
   }
 
   async getCurrentRelativeHumidity(callback: CharacteristicGetCallback) {
