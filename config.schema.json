@@ -33,6 +33,12 @@
           }
         }
       },
+      "debug": {
+        "title": "Debug",
+        "description": "Enables additional output in the log.",
+        "type": "boolean",
+        "default": false
+      },
       "user_agent": {
         "title": "User Agent",
         "description": "Allow to change default user agent if set.",
@@ -91,6 +97,7 @@
       "title": "Advanced",
       "description": "Don't change these, unless you understand what you're doing.",
       "items": [
+        "debug",
         "user_agent",
         "base_url"
       ]

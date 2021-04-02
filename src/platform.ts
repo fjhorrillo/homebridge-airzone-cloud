@@ -1,4 +1,5 @@
-import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
+import { API, DynamicPlatformPlugin, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
+import { Logger } from 'homebridge/lib/logger';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { AirzoneCloudPlatformAccessory } from './platformAccessory';
@@ -29,7 +30,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
 
-  public airzoneCloud: AirzoneCloud | undefined;
+  public airzoneCloud!: AirzoneCloud;
 
   constructor(
     public readonly log: Logger,
@@ -48,6 +49,14 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       return;
     }
 
+    // Init logger
+    log.info('prefix:' + log.prefix);
+    if ((this.config as AirzoneCloudPlatformConfig).debug) {
+      Logger.setDebugEnabled(true);
+      Logger.forceColor();
+      this.log = log.prefix ? new Logger(log.prefix) : new Logger();
+    }
+
     this.log.debug(`config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
 
     // We need login credentials or we're not starting.
@@ -63,7 +72,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     // in order to ensure they weren't added to homebridge already. This event can also be used
     // to start discovery of new accessories.
     this.api.on('didFinishLaunching', () => {
-      log.debug('Executed didFinishLaunching callback');
+      this.log.debug('Executed didFinishLaunching callback');
       // run the method to discover / register your devices as accessories
       this.discoverDevices();
     });

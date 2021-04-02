@@ -12,6 +12,7 @@ export interface AirzoneCloudPlatformConfig extends PlatformConfig {
 
   // Added properties
   login: User;
+  debug: boolean;
   user_agent: string;
   base_url: string;
 }
@@ -33,6 +34,7 @@ export namespace AirzoneCloudPlatformConfig {
   export function isValid(platform: AirzoneCloudHomebridgePlatform): boolean {
     const cast = platform.config as AirzoneCloudPlatformConfig;
 
+    const validDebug = evaluate(platform, 'boolean', 'user_agent', cast.debug);
     const validUserAgent = evaluate(platform, 'string', 'user_agent', cast.user_agent);
     const validBaseUrl = evaluate(platform, 'string', 'base_url', cast.base_url);
 
@@ -42,7 +44,7 @@ export namespace AirzoneCloudPlatformConfig {
     }
     const validUser = User.isValid(platform, cast.login);
 
-    return validUserAgent && validBaseUrl && validUser;
+    return validDebug && validUserAgent && validBaseUrl && validUser;
   }
 
   export function toString(platform: AirzoneCloudHomebridgePlatform): string {
