@@ -50,7 +50,7 @@ export class System {
   public toString(): string {
     return `System(name=${this.name}, mode=${this.mode}, eco=${this.eco}` +
       `, velocity=${this.has_velocity?this.velocity:'None'}` +
-      `, airflow=${this.has_airflow?this.airflow:'None'}`;
+      `, airflow=${this.has_airflow?this.airflow:'None'})`;
   }
 
   public str_complete(): string {
