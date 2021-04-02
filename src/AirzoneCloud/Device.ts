@@ -13,7 +13,6 @@ export class Device {
   private log: Logger;
   private _data;
   private _systems: System[] = [];
-  private _last_update = new Date();
 
   private constructor(
     private readonly platform: AirzoneCloudHomebridgePlatform,
