@@ -168,7 +168,7 @@ export class System {
 
   /* Set mode of the system */
   public async set_mode(mode_name: string) {
-    this.log.info(`call set_mode(${mode_name}) on ${this}`);
+    this.log.debug(`call set_mode(${mode_name}) on ${this.str_complete()}`);
     let mode_id_found;
     for (const mode_id in MODES_CONVERTER) {
       const mode = MODES_CONVERTER[mode_id];
