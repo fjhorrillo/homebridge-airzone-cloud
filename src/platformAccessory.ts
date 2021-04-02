@@ -23,7 +23,7 @@ export class AirzoneCloudPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
       .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
-      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision)
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision as string)
       .setCharacteristic(this.platform.Characteristic.SoftwareRevision, accessory.context.device.softwareRevision);
     this.displayUnits = accessory.context.device.displayUnits;
 
@@ -34,7 +34,7 @@ export class AirzoneCloudPlatformAccessory {
 
     // set the service name, this is what is displayed as the default name on the Home app
     // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.displayName);
+    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.name);
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Thermostat

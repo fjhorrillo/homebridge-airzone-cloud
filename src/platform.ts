@@ -109,7 +109,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       /*this.log.info(`System ${system.system_number}: ${system.str_complete()}`);
       this.registerDevice({
         uniqueId:system.id,
-        displayName: system.name,
+        name: system.name,
         serialNumber: system.device.mac,
         model: system.class,
         firmwareRevision: system.firmware_system,
