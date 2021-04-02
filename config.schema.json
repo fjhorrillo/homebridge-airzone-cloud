@@ -14,6 +14,17 @@
         "required": true,
         "default": "AirzoneCloud"
       },
+      "system": {
+        "title": "System",
+        "description": "System type.",
+        "type": "string",
+        "required": true,
+        "oneOf": [
+          { "title": "AirzoneCloud", "enum": ["https://www.airzonecloud.com"] },
+          { "title": "DKN", "enum": ["https://dkn.airzonecloud.com"] }
+        ],
+        "default": "https://www.airzonecloud.com"
+      },
       "login": {
         "title": "Airzone Cloud credentials",
         "type": "object",
@@ -47,19 +58,18 @@
         "placeholder": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.2 Safari/605.1.15",
         "default": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.2 Safari/605.1.15"
       },
-      "base_url": {
+      "custom_base_url": {
         "title": "Base URL",
         "description": "Allow to change base url of the Airzone Cloud API if set.",
         "type": "string",
         "format": "uri",
-        "required": true,
-        "placeholder": "https://www.airzonecloud.com",
-        "default": "https://www.airzonecloud.com"
+        "placeholder": "https://www.airzonecloud.com"
       }
     }
   },
   "form": [
     "name",
+    "system",
     {
       "type": "fieldset",
       "expandable": false,
@@ -99,7 +109,7 @@
       "items": [
         "debug",
         "user_agent",
-        "base_url"
+        "custom_base_url"
       ]
     }
   ]

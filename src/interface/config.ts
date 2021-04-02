@@ -11,10 +11,11 @@ export interface AirzoneCloudPlatformConfig extends PlatformConfig {
   name?: string;
 
   // Added properties
+  system: string;
   login: User;
   debug: boolean;
   user_agent: string;
-  base_url: string;
+  custom_base_url: string;
 }
 
 function evaluate(platform: AirzoneCloudHomebridgePlatform, type: string, key: string, value?: unknown): boolean {
@@ -36,7 +37,7 @@ export namespace AirzoneCloudPlatformConfig {
 
     const validDebug = evaluate(platform, 'boolean', 'user_agent', cast.debug);
     const validUserAgent = evaluate(platform, 'string', 'user_agent', cast.user_agent);
-    const validBaseUrl = evaluate(platform, 'string', 'base_url', cast.base_url);
+    const validSystem = evaluate(platform, 'string', 'system', cast.system);
 
     if (cast.login === undefined) {
       platform.log.error('Missing User(email, password) in Config.');
@@ -44,7 +45,7 @@ export namespace AirzoneCloudPlatformConfig {
     }
     const validUser = User.isValid(platform, cast.login);
 
-    return validDebug && validUserAgent && validBaseUrl && validUser;
+    return validDebug && validUserAgent && validSystem && validUser;
   }
 
   export function toString(platform: AirzoneCloudHomebridgePlatform): string {
@@ -55,6 +56,11 @@ export namespace AirzoneCloudPlatformConfig {
       }
       return value;
     });
+  }
+
+  export function isDaikin(platform: AirzoneCloudHomebridgePlatform): boolean {
+    const cast = platform.config as AirzoneCloudPlatformConfig;
+    return Boolean(cast.system.match(/dkn/g));
   }
 }
 
