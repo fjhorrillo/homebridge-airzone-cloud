@@ -23,8 +23,7 @@ export class AirzoneCloudPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
       .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
-      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision as string)
-      .setCharacteristic(this.platform.Characteristic.SoftwareRevision, accessory.context.device.softwareRevision);
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision as string);
     this.displayUnits = accessory.context.device.displayUnits;
 
     // get the Thermostat service if it exists, otherwise create a new Thermostat service
@@ -129,14 +128,14 @@ export class AirzoneCloudPlatformAccessory {
 
     // CurrentHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL
     let currentHeatingCoolingState = 0;
-    switch (Number(system.mode_raw)) {
-      case 0:
+    switch (system.heat_cold_mode) {
+      case 'none':
         currentHeatingCoolingState = 0;
         break;
-      case 1: case 8: case 9:
+      case 'cool':
         currentHeatingCoolingState = 2;
         break;
-      case 2: case 4: case 5:
+      case 'heat':
         currentHeatingCoolingState = 1;
         break;
       default:
@@ -213,14 +212,14 @@ export class AirzoneCloudPlatformAccessory {
 
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     let targetHeatingCoolingState = 0;
-    switch (Number(this.zone.system.mode_raw)) {
-      case 0:
+    switch (this.zone.system.heat_cold_mode) {
+      case 'none':
         targetHeatingCoolingState = 0;
         break;
-      case 1: case 8: case 9:
+      case 'cool':
         targetHeatingCoolingState = 2;
         break;
-      case 2: case 4: case 5:
+      case 'heat':
         targetHeatingCoolingState = 1;
         break;
       default:

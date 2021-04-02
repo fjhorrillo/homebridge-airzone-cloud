@@ -80,6 +80,10 @@ export class System {
     return this._data.mode;
   }
 
+  get heat_cold_mode(): string {
+    return MODES_CONVERTER[this.mode_raw]['type'];
+  }
+
   get eco(): string {
     return ECO_CONVERTER[this.eco_raw]['name'];
   }
