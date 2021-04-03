@@ -187,6 +187,14 @@ export class Zone {
   /* Refresh current zone data (call refresh on parent system) */
   public async refresh() {
     await this.system.refresh();
+
+    // search zone in system zones (if where are refreshing zones)
+    for (const current_zone of this.system.zones) {
+      if (current_zone.id === this.id) {
+        this._set_data_refreshed(current_zone._data);
+        break;
+      }
+    }
   }
 
   /*
