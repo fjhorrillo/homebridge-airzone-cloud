@@ -23,7 +23,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
       .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
-      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision as string);
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision);
     this.displayUnits = accessory.context.device.displayUnits;
 
     // get the Thermostat service if it exists, otherwise create a new Thermostat service
@@ -126,7 +126,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
       case 'none':
         currentHeatingCoolingState = 0;
         break;
-      case 'cool':
+      case 'cold':
         currentHeatingCoolingState = 2;
         break;
       case 'heat':
@@ -167,7 +167,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
         await this.device.turn_on();
         break;
       case 2: // COOL
-        targetHeatingCoolingState = 'cool';
+        targetHeatingCoolingState = 'cold';
         await this.device.turn_on();
         break;
       case 3: // AUTO
@@ -196,7 +196,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
       case 'none':
         targetHeatingCoolingState = 0;
         break;
-      case 'cool':
+      case 'cold':
         targetHeatingCoolingState = 2;
         break;
       case 'heat':

@@ -23,7 +23,7 @@ export class AirzoneCloudPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
       .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
-      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision as string);
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision);
     this.displayUnits = accessory.context.device.displayUnits;
 
     // get the Thermostat service if it exists, otherwise create a new Thermostat service
@@ -132,7 +132,7 @@ export class AirzoneCloudPlatformAccessory {
       case 'none':
         currentHeatingCoolingState = 0;
         break;
-      case 'cool':
+      case 'cold':
         currentHeatingCoolingState = 2;
         break;
       case 'heat':
@@ -177,7 +177,7 @@ export class AirzoneCloudPlatformAccessory {
         await this.zone.turn_off();
         break;
       case 1: // HEAT
-        targetHeatingCoolingState = 'heat-radiant';
+        targetHeatingCoolingState = 'heat-both';
         await this.zone.turn_on();
         break;
       case 2: // COOL
@@ -187,7 +187,7 @@ export class AirzoneCloudPlatformAccessory {
       case 3: // AUTO
         targetHeatingCoolingState = system.mode;
         if (this.zone.current_temperature! < this.zone.target_temperature!) { // If themperture is lower
-          targetHeatingCoolingState = 'heat-radiant';
+          targetHeatingCoolingState = 'heat-both';
           await this.zone.turn_on();
         } else if (this.zone.current_temperature! > this.zone.target_temperature!) { // If temperture is higher
           targetHeatingCoolingState = 'cool-air';
@@ -216,7 +216,7 @@ export class AirzoneCloudPlatformAccessory {
       case 'none':
         targetHeatingCoolingState = 0;
         break;
-      case 'cool':
+      case 'cold':
         targetHeatingCoolingState = 2;
         break;
       case 'heat':

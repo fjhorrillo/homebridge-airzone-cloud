@@ -163,7 +163,7 @@ export class System {
   }
 
   get firmware_system(): string {
-    return this._data.system_fw;
+    return String(this._data.system_fw);
   }
 
   /*
