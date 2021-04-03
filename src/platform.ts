@@ -1,5 +1,5 @@
-import { API, DynamicPlatformPlugin, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
-import { Logger } from 'homebridge/lib/logger';
+import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
+import { Logger as DebugLogger } from 'homebridge/lib/logger';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { AirzoneCloudPlatformAccessory } from './platformAccessory';
@@ -52,12 +52,11 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    // Init logger
-    log.info('prefix:' + log.prefix);
-    if ((this.config as AirzoneCloudPlatformConfig).debug) {
-      Logger.setDebugEnabled(true);
-      Logger.forceColor();
-      this.log = log.prefix ? new Logger(log.prefix) : new Logger();
+    // Init debug logger
+    if (DebugLogger && (this.config as AirzoneCloudPlatformConfig).debug) {
+      DebugLogger.setDebugEnabled(true);
+      DebugLogger.forceColor();
+      this.log = log.prefix ? new DebugLogger(log.prefix) : new DebugLogger();
     }
 
     this.log.debug(`config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
