@@ -15,7 +15,7 @@
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/fjhorrillo/homebridge-airzone-cloud)](https://github.com/fjhorrillo/homebridge-airzone-cloud/pulls)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen)](https://standardjs.com)
 
-[![Donate](https://img.shields.io/badge/donate-PayPal-blue)](https://www.paypal.com/donate?hosted_button_id=RSWQUMJ7DT94L)
+[![Donate](https://img.shields.io/badge/donate-PayPal-blue)](https://paypal.me/fjhorrillo)
 
 Supported Languages: :gb:
 
@@ -26,7 +26,7 @@ Copyright © 2021 Francisco Javier Horrillo Sancho. All rights reserved.
 
 ### Introduction
 
-This [Homebridge](https://github.com/homebridge/homebridge) plugin exposes to Apple's [HomeKit](http://www.apple.com/ios/home/) [Airzone System](http://www.airzone.es) connected to a Webserver [Airzone Cloud](https://airzonecloud.com).
+This [Homebridge](https://github.com/homebridge/homebridge) plugin exposes to Apple's [HomeKit](http://www.apple.com/ios/home/) [Airzone System](http://www.airzone.es) connected to a Webserver [Airzone Cloud](https://www.airzonecloud.com) or [DKN Cloud] (https://dkn.airzonecloud.com).
 
 ### Prerequisites
 You need a [Airzone System](http://www.airzone.es) with a Webserver installed and also you need an account in [Airzone Cloud](https://airzonecloud.com).
