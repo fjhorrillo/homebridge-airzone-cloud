@@ -4,7 +4,6 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
 import fetch = require('node-fetch');
 
 import { API_LOGIN, API_INSTALLATION_RELATIONS, API_DEVICES, API_EVENTS } from './contants';
@@ -13,7 +12,6 @@ import { URL, URLSearchParams } from 'url';
 
 /* Allow to connect to AirzoneCloudDaikin API */
 export class AirzoneCloudDaikin {
-  private log: Logger;
   private _username: string;
   private _password: string;
   private _user_agent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile';
@@ -29,7 +27,6 @@ export class AirzoneCloudDaikin {
     user_agent: string,
     base_url: string,
   ) {
-    this.log = platform.log;
     this._username = username;
     this._password = password;
     if (user_agent) {
@@ -107,16 +104,16 @@ export class AirzoneCloudDaikin {
         password: this._password,
       }),
     };
-    this.log.debug(`Request: ${options.method} ${options.url}`);
+    this.platform.log.trace(`Request: ${options.method} ${options.url}`);
     const response = await fetch( options.url, options);
     if (response && response.ok) {
       const data = await response.json();
-      this.log.debug(`Response ${JSON.stringify(data)}`);
+      this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
       this._token = data.user.authentication_token;
-      this.log.info(`Login success as ${this._username}`);
+      this.platform.log.info(`Login success as ${this._username}`);
       return this._token;
     } else {
-      this.log.error(`Unable to login to Daikin AirzoneCloud. Request ${JSON.stringify(options)} ${JSON.stringify(response)}`);
+      this.platform.log.error(`Unable to login to Daikin AirzoneCloud. Request: ${JSON.stringify(options)} ${JSON.stringify(response)}`);
     }
   }
 
@@ -126,7 +123,7 @@ export class AirzoneCloudDaikin {
     this._installations = [];
     try {
       for (const installation_relation of await this._get_installation_relations()) {
-        this.log.debug(`installation_relations ${JSON.stringify(installation_relation)}`);
+        this.platform.log.trace(`installation_relations: ${JSON.stringify(installation_relation)}`);
         const installation_data = installation_relation.installation;
         let installation: Installation | undefined;
         // search installation in current_installations (if where are refreshing installations)
@@ -144,33 +141,33 @@ export class AirzoneCloudDaikin {
         this._installations.push(installation);
       }
     } catch(e) {
-      this.log.error('Unable to load installations from AirzoneCloud', e);
+      this.platform.log.error('Unable to load installations from AirzoneCloud', e);
     }
     return this._installations;
   }
 
   /* Http GET to load installations relations */
   public async _get_installation_relations() {
-    this.log.debug('get_installation_relations()');
+    this.platform.log.trace('get_installation_relations()');
     const response = await this._get(API_INSTALLATION_RELATIONS);
     return response.installation_relations;
   }
 
   /* Http GET to load devices */
   public async _get_devices(installation_id) {
-    this.log.debug(`get_devices(installation_id=${installation_id})`);
+    this.platform.log.trace(`get_devices(installation_id=${installation_id})`);
     return (await this._get(API_DEVICES, {'installation_id': installation_id})).devices;
   }
 
   /* Http POST to send an event */
   public async _send_event(payload) {
-    this.log.debug(`Send event with payload: ${JSON.stringify(payload)}`);
+    this.platform.log.trace(`Send event with payload: ${JSON.stringify(payload)}`);
     try {
       const result = await this._post(API_EVENTS, payload);
-      this.log.debug(`Result event: ${JSON.stringify(result)}`);
+      this.platform.log.trace(`Result event: ${JSON.stringify(result)}`);
       return result;
     } catch(e) {
-      this.log.error('Unable to send event to AirzoneCloud');
+      this.platform.log.error('Unable to send event to AirzoneCloud');
     }
   }
 
@@ -214,15 +211,15 @@ export class AirzoneCloudDaikin {
       headers: headers,
       body: json,
     };
-    this.log.debug(`Request: ${options.method} ${options.url}`);
+    this.platform.log.trace(`Request: ${options.method} ${options.url}`);
     const response = await fetch(options.url, options);
     if (response && response.ok) {
       const data = await response.json();
-      this.log.debug(`Response: ${JSON.stringify(data)}`);
+      this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
       return data;
     } else {
-      this.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText}`);
-      this.log.debug(`Response ${JSON.stringify(response)} for Request ${JSON.stringify(options)}`);//debug
+      this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText}`);
+      this.platform.log.trace(`Response: ${JSON.stringify(response)} for Request: ${JSON.stringify(options)}`);
     }
   }
 }

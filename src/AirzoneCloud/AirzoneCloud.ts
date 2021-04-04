@@ -4,7 +4,6 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
 import fetch = require('node-fetch');
 
 import { API_LOGIN, API_DEVICE_RELATIONS, API_SYSTEMS, API_ZONES, API_EVENTS } from './contants';
@@ -13,7 +12,6 @@ import { URL, URLSearchParams } from 'url';
 
 /* Allow to connect to AirzoneCloud API */
 export class AirzoneCloud {
-  private log: Logger;
   private _username: string;
   private _password: string;
   private _user_agent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile';
@@ -29,7 +27,6 @@ export class AirzoneCloud {
     user_agent: string,
     base_url: string,
   ) {
-    this.log = platform.log;
     this._username = username;
     this._password = password;
     if (user_agent) {
@@ -120,16 +117,16 @@ export class AirzoneCloud {
         password: this._password,
       }),
     };
-    this.log.debug(`Request: ${options.method} ${options.url}`);
+    this.platform.log.trace(`Request: ${options.method} ${options.url}`);
     const response = await fetch( options.url, options);
     if (response && response.ok) {
       const data = await response.json();
-      this.log.debug(`Response ${JSON.stringify(data)}`);
+      this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
       this._token = data.user.authentication_token;
-      this.log.info(`Login success as ${this._username}`);
+      this.platform.log.info(`Login success as ${this._username}`);
       return this._token;
     } else {
-      this.log.error(`Unable to login to AirzoneCloud. Request ${JSON.stringify(options)} ${JSON.stringify(response)}`);
+      this.platform.log.error(`Unable to login to AirzoneCloud. Request: ${JSON.stringify(options)} ${JSON.stringify(response)}`);
     }
   }
 
@@ -139,7 +136,7 @@ export class AirzoneCloud {
     this._devices = [];
     try {
       for (const device_relation of await this._get_device_relations()) {
-        this.log.debug(`device_relations ${JSON.stringify(device_relation)}`);
+        this.platform.log.trace(`device_relations: ${JSON.stringify(device_relation)}`);
         const device_data = device_relation.device;
         let device: Device | undefined;
         // search device in current_devices (if where are refreshing devices)
@@ -157,39 +154,39 @@ export class AirzoneCloud {
         this._devices.push(device);
       }
     } catch(e) {
-      this.log.error('Unable to load devices from AirzoneCloud', e);
+      this.platform.log.error('Unable to load devices from AirzoneCloud', e);
     }
     return this._devices;
   }
 
   /* Http GET to load devices */
   public async _get_device_relations() {
-    this.log.debug('get_device_relations()');
+    this.platform.log.trace('get_device_relations()');
     const response = await this._get(API_DEVICE_RELATIONS);
     return response.device_relations;
   }
 
   /* Http GET to load systems */
   public async _get_systems(device_id) {
-    this.log.debug(`get_systems(device_id=${device_id})`);
+    this.platform.log.trace(`get_systems(device_id=${device_id})`);
     return (await this._get(API_SYSTEMS, {'device_id': device_id})).systems;
   }
 
   /* Http GET to load zones */
   public async _get_zones(system_id) {
-    this.log.debug(`get_zones(system_id=${system_id})`);
+    this.platform.log.trace(`get_zones(system_id=${system_id})`);
     return (await this._get(API_ZONES, {'system_id': system_id})).zones;
   }
 
   /* Http POST to send an event */
   public async _send_event(payload) {
-    this.log.debug(`Send event with payload: ${JSON.stringify(payload)}`);
+    this.platform.log.trace(`Send event with payload: ${JSON.stringify(payload)}`);
     try {
       const result = await this._post(API_EVENTS, payload);
-      this.log.debug(`Result event: ${JSON.stringify(result)}`);
+      this.platform.log.trace(`Result event: ${JSON.stringify(result)}`);
       return result;
     } catch(e) {
-      this.log.error('Unable to send event to AirzoneCloud');
+      this.platform.log.error('Unable to send event to AirzoneCloud');
     }
   }
 
@@ -233,15 +230,15 @@ export class AirzoneCloud {
       headers: headers,
       body: json,
     };
-    this.log.debug(`Request: ${options.method} ${options.url}`);
+    this.platform.log.trace(`Request: ${options.method} ${options.url}`);
     const response = await fetch(options.url, options);
     if (response && response.ok) {
       const data = await response.json();
-      this.log.debug(`Response: ${JSON.stringify(data)}`);
+      this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
       return data;
     } else {
-      this.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText}`);
-      this.log.debug(`Response ${JSON.stringify(response)} for Request ${JSON.stringify(options)}`);//debug
+      this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText}`);
+      this.platform.log.trace(`Response: ${JSON.stringify(response)} for Request: ${JSON.stringify(options)}`);
     }
   }
 }

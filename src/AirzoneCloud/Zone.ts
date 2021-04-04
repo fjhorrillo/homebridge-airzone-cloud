@@ -4,14 +4,11 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
-
 import { MODES_CONVERTER } from './contants';
 import { AirzoneCloud, System } from '.';
 
 /* Manage a Airzonecloud zone */
 export class Zone {
-  private log: Logger;
   private _system: System;
   private _data;
 
@@ -21,13 +18,12 @@ export class Zone {
     system: System,
     data,
   ) {
-    this.log = platform.log;
     this._system = system;
     this._data = data;
 
     // log
-    this.log.debug(`Init ${this.str_complete()}`);
-    this.log.debug(`Zone data ${JSON.stringify(data)}`);
+    this.platform.log.trace(`Init: ${this.str_complete()}`);
+    this.platform.log.trace(`Zone data: ${JSON.stringify(data)}`);
   }
 
   /* This is for syncronice initialization */
@@ -139,14 +135,14 @@ export class Zone {
 
   /* Turn zone on */
   public async turn_on() {
-    this.log.debug(`call turn_on() on ${this.str_complete()}`);
+    this.platform.log.trace(`call turn_on() on ${this.str_complete()}`);
     await this._send_event('state', 1);
     this._data['state'] = '1';
   }
 
   /* Turn zone off */
   public async turn_off() {
-    this.log.debug(`call turn_off() on ${this.str_complete()}`);
+    this.platform.log.trace(`call turn_off() on ${this.str_complete()}`);
     await this._send_event('state', 0);
     this._data['state'] = '0';
   }
@@ -161,7 +157,7 @@ export class Zone {
     if (temperature > this.max_temp!) {
       temperature = this.max_temp;
     }
-    this.log.debug(`call set_temperature(${temperature}) on ${this.str_complete()} (min: ${this.min_temp} & max: ${this.max_temp})`);
+    this.platform.log.trace(`call set_temperature(${temperature}) on ${this.str_complete()} (min: ${this.min_temp}/max: ${this.max_temp})`);
     await this._send_event('consign', temperature.toFixed(1));
     this._data['consign'] = temperature.toFixed(1);
   }
@@ -219,6 +215,6 @@ export class Zone {
   /* Set data refreshed (call by parent system on refresh_zones()) */
   public _set_data_refreshed(data) {
     this._data = data;
-    this.log.debug(`Data refreshed for ${this.str_complete()}`);
+    this.platform.log.trace(`Data refreshed for: ${this.str_complete()}`);
   }
 }

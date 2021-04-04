@@ -4,14 +4,11 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
-
 import { MODES_CONVERTER } from './contants';
 import { AirzoneCloudDaikin, Installation } from '.';
 
 /* Manage a AirzoneCloud device */
 export class Device {
-  private log: Logger;
   private _installation:Installation;
   private _data;
 
@@ -21,13 +18,12 @@ export class Device {
     installation: Installation,
     data,
   ) {
-    this.log = platform.log;
     this._installation = installation;
     this._data = data;
 
     // log
-    this.log.debug(`Init ${this.str_complete()}`);
-    this.log.debug(`Device data ${JSON.stringify(data)}`);
+    this.platform.log.trace(`Init: ${this.str_complete()}`);
+    this.platform.log.trace(`Device data: ${JSON.stringify(data)}`);
   }
 
   /* This is for syncronice initialization */
@@ -184,21 +180,21 @@ export class Device {
    */
   /* Turn device on */
   public async turn_on() {
-    this.log.debug(`call turn_on() on ${this.str_complete()}`);
+    this.platform.log.trace(`call turn_on() on ${this.str_complete()}`);
     await this._send_event('P1', 1);
     this._data['power'] = '1';
   }
 
   /* Turn device off */
   public async turn_off() {
-    this.log.debug(`call turn_off() on ${this.str_complete()}`);
+    this.platform.log.trace(`call turn_off() on ${this.str_complete()}`);
     await this._send_event('P1', 0);
     this._data['power'] = '0';
   }
 
   /* Set mode of the device */
   public async set_mode(mode_name: string) {
-    this.log.debug(`call set_mode(${mode_name}) on ${this.str_complete()}`);
+    this.platform.log.trace(`call set_mode(${mode_name}) on ${this.str_complete()}`);
     let mode_id_found;
     for (const mode_id in MODES_CONVERTER) {
       const mode = MODES_CONVERTER[mode_id];
@@ -208,7 +204,7 @@ export class Device {
       }
     }
     if (!mode_id_found) {
-      this.log.error(`mode name "${mode_name}" not found`);
+      this.platform.log.error(`mode name "${mode_name}" not found`);
     }
 
     // send event
@@ -228,7 +224,7 @@ export class Device {
     if (this.max_temperature && temperature > this.max_temperature!) {
       temperature = this.max_temperature;
     }
-    this.log.debug(`call set_temperature(${temperature}) on ${this.str_complete()} ` +
+    this.platform.log.trace(`call set_temperature(${temperature}) on ${this.str_complete()} ` +
       `(min: ${this.min_temperature} & max: ${this.max_temperature})`);
     if (this.heat_cold_mode === 'heat') {
       await this._send_event('P8', temperature.toFixed(1));
@@ -289,6 +285,6 @@ export class Device {
   /* Set data refreshed (call by parent AirzoneCloudDaikin on refresh_devices()) */
   public _set_data_refreshed(data) {
     this._data = data;
-    this.log.debug(`Data refreshed for ${this.str_complete()}`);
+    this.platform.log.trace(`Data refreshed for: ${this.str_complete()}`);
   }
 }

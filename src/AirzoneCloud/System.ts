@@ -4,14 +4,11 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
-
 import { MODES_CONVERTER, ECO_CONVERTER, VELOCITIES_CONVERTER, AIRFLOW_CONVERTER } from './contants';
 import { AirzoneCloud, Device, Zone } from '.';
 
 /* Manage a AirzoneCloud system */
 export class System {
-  private log: Logger;
   private _device: Device;
   private _data;
   private _zones: Zone[] = [];
@@ -22,13 +19,12 @@ export class System {
     device: Device,
     data,
   ) {
-    this.log = platform.log;
     this._device = device;
     this._data = data;
 
     // log
-    this.log.debug(`Init ${this.str_complete()}`);
-    this.log.debug(`System data ${JSON.stringify(data)}`);
+    this.platform.log.trace(`Init: ${this.str_complete()}`);
+    this.platform.log.trace(`System data: ${JSON.stringify(data)}`);
   }
 
   /* This is for syncronice initialization */
@@ -172,7 +168,7 @@ export class System {
 
   /* Set mode of the system */
   public async set_mode(mode_name: string) {
-    this.log.debug(`call set_mode(${mode_name}) on ${this.str_complete()}`);
+    this.platform.log.trace(`call set_mode(${mode_name}) on ${this.str_complete()}`);
     let mode_id_found;
     for (const mode_id in MODES_CONVERTER) {
       const mode = MODES_CONVERTER[mode_id];
@@ -182,7 +178,7 @@ export class System {
       }
     }
     if (!mode_id_found) {
-      this.log.error(`mode name "${mode_name}" not found`);
+      this.platform.log.error(`mode name "${mode_name}" not found`);
     }
 
     // send event
@@ -269,7 +265,7 @@ export class System {
         this._zones.push(zone);
       }
     } catch(e) {
-      this.log.error(`Unable to load zones of system ${this.name} (${this.id}) from AirzoneCloud`, e);
+      this.platform.log.error(`Unable to load zones of system ${this.name} (${this.id}) from AirzoneCloud`, e);
     }
 
     return this._zones;
@@ -306,6 +302,6 @@ export class System {
   /* Set data refreshed (call by parent device on refresh_systems()) */
   public _set_data_refreshed(data) {
     this._data = data;
-    this.log.debug(`Data refreshed for ${this.str_complete()}`);
+    this.platform.log.trace(`Data refreshed for: ${this.str_complete()}`);
   }
 }

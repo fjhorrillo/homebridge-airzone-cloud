@@ -4,13 +4,10 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
-
 import { AirzoneCloud, System } from '.';
 
 /* Manage a AirzoneCloud device */
 export class Device {
-  private log: Logger;
   private _data;
   private _systems: System[] = [];
 
@@ -19,7 +16,6 @@ export class Device {
     private readonly api: AirzoneCloud,
     data,
   ) {
-    this.log = platform.log;
 
     // remove weather (huge array with all translates)
     if (data.data?.data) {
@@ -29,8 +25,8 @@ export class Device {
     this._data = data;
 
     // log
-    this.log.debug(`Init ${this.str_complete()}`);
-    this.log.debug(`Device data ${JSON.stringify(data)}`);
+    this.platform.log.trace(`Init: ${this.str_complete()}`);
+    this.platform.log.trace(`Device data: ${JSON.stringify(data)}`);
   }
 
 
@@ -173,7 +169,7 @@ export class Device {
         this._systems.push(system);
       }
     } catch(e) {
-      this.log.error(`Unable to load systems of device ${this.name} (${this.id}) from AirzoneCloud`, e);
+      this.platform.log.error(`Unable to load systems of device ${this.name} (${this.id}) from AirzoneCloud`, e);
     }
     return this._systems;
   }
@@ -181,6 +177,6 @@ export class Device {
   /* Set data refreshed (call by parent AirzoneCloud on refresh_devices()) */
   public _set_data_refreshed(data) {
     this._data = data;
-    this.log.debug(`Data refreshed for ${this.str_complete()}`);
+    this.platform.log.trace(`Data refreshed for: ${this.str_complete()}`);
   }
 }

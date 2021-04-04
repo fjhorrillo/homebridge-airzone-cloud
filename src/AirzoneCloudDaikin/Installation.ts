@@ -4,13 +4,10 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { Logger } from 'homebridge';
-
 import { AirzoneCloudDaikin, Device } from '.';
 
 /* Manage a AirzoneCloud system */
 export class Installation {
-  private log: Logger;
   private _data;
   private _devices: Device[] = [];
 
@@ -19,12 +16,11 @@ export class Installation {
     private readonly api: AirzoneCloudDaikin,
     data,
   ) {
-    this.log = platform.log;
     this._data = data;
 
     // log
-    this.log.debug(`Init ${this.str_complete()}`);
-    this.log.debug(`Installation data ${JSON.stringify(data)}`);
+    this.platform.log.trace(`Init: ${this.str_complete()}`);
+    this.platform.log.trace(`Installation data: ${JSON.stringify(data)}`);
   }
 
   /* This is for syncronice initialization */
@@ -140,7 +136,7 @@ export class Installation {
         this._devices.push(device);
       }
     } catch(e) {
-      this.log.error(`Unable to load devices of installation ${this.name} (${this.id}) from AirzoneCloudDaikin`, e);
+      this.platform.log.error(`Unable to load devices of installation ${this.name} (${this.id}) from AirzoneCloudDaikin`, e);
     }
 
     return this._devices;
@@ -149,6 +145,6 @@ export class Installation {
   /* Set data refreshed (call by parent AirzoneCloudDaikin on refresh_installations()) */
   public _set_data_refreshed(data) {
     this._data = data;
-    this.log.debug(`Data refreshed for ${this.str_complete()}`);
+    this.platform.log.trace(`Data refreshed for: ${this.str_complete()}`);
   }
 }

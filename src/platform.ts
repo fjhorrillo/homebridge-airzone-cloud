@@ -1,5 +1,4 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
-import { Logger as DebugLogger } from 'homebridge/lib/logger';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { AirzoneCloudPlatformAccessory } from './platformAccessory';
@@ -32,32 +31,32 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
 
+  public readonly log!: DebugLogger;
   public airzoneCloud!: AirzoneCloud;
   public airzoneCloudDaikin!: AirzoneCloudDaikin;
 
   constructor(
-    public readonly log: Logger,
+    public readonly _log: Logger,
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
 
     // We can't start without being configured.
     if(!config) {
-      this.log.error('No config defined.');
+      _log.error('No config defined.');
       return;
     }
 
     if(!AirzoneCloudPlatformConfig.isValid(this)) {
-      this.log.error(`Invalid config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
+      _log.error(`Invalid config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
       return;
     }
 
     // Init debug logger
-    if (DebugLogger && (this.config as AirzoneCloudPlatformConfig).debug) {
+    if ((this.config as AirzoneCloudPlatformConfig).debug) {
       DebugLogger.setDebugEnabled(true);
-      DebugLogger.forceColor();
-      this.log = log.prefix ? new DebugLogger(log.prefix) : new DebugLogger();
     }
+    this.log = new DebugLogger(_log);
 
     this.log.debug(`config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
 
@@ -67,14 +66,14 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    this.log.debug(`Finished initializing platform: ${this.config.name}`);
+    this.log.trace(`Finished initializing platform: ${this.config.name}`);
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
     // in order to ensure they weren't added to homebridge already. This event can also be used
     // to start discovery of new accessories.
     this.api.on('didFinishLaunching', () => {
-      this.log.debug('Executed didFinishLaunching callback');
+      this.log.trace('Executed didFinishLaunching callback');
       // run the method to discover / register your devices as accessories
       if (!AirzoneCloudPlatformConfig.isDaikin(this)) {
         this.discoverDevices();
@@ -235,5 +234,58 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }
+  }
+}
+
+/**
+ * DebugLogger
+ * Extend loging to manage debug mode
+ */
+class DebugLogger implements Logger {
+  private static debugEnabled;
+
+  constructor(private readonly _log: Logger) {
+    this.debug('Debug mode on');
+  }
+
+  info(message: string, ...parameters: unknown[]): void {
+    this._log.info(message, ...parameters);
+  }
+
+  warn(message: string, ...parameters: unknown[]): void {
+    this._log.warn(message, ...parameters);
+  }
+
+  error(message: string, ...parameters: unknown[]): void {
+    this._log.error(message, ...parameters);
+  }
+
+  debug(message: string, ...parameters: unknown[]): void {
+    if (DebugLogger.debugEnabled) {
+      this.log('info', `\x1b[90m${message}\x1b[0m`, ...parameters);
+    } else {
+      this._log.debug(message, ...parameters);
+    }
+  }
+
+  trace(message: string, ...parameters: unknown[]): void {
+    this._log.debug(message, ...parameters);
+  }
+
+  log(level, message: string, ...parameters: unknown[]): void {
+    this._log.log(level, message, ...parameters);
+  }
+
+  get prefix(): string | undefined {
+    return this._log.prefix;
+  }
+
+  /**
+   * Turns on debug level logging. Off by default.
+   *
+   * @param enabled {boolean}
+   */
+  static setDebugEnabled(enabled = true) {
+    DebugLogger.debugEnabled = enabled;
   }
 }
