@@ -26,7 +26,7 @@ Copyright © 2021 Francisco Javier Horrillo Sancho. All rights reserved.
 
 ### Introduction
 
-This [Homebridge](https://github.com/homebridge/homebridge) plugin exposes to Apple's [HomeKit](http://www.apple.com/ios/home/) [Airzone System](http://www.airzone.es) connected to a Webserver [Airzone Cloud](https://www.airzonecloud.com) or [DKN Cloud] (https://dkn.airzonecloud.com).
+This [Homebridge](https://github.com/homebridge/homebridge) plugin exposes to Apple's [HomeKit](http://www.apple.com/ios/home/) [Airzone System](http://www.airzone.es) connected to a Webserver [Airzone Cloud](https://www.airzonecloud.com) or [DKN Cloud](https://dkn.airzonecloud.com).
 
 ### Prerequisites
 You need a [Airzone System](http://www.airzone.es) with a Webserver installed and also you need an account in [Airzone Cloud](https://airzonecloud.com).
