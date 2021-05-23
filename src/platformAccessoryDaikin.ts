@@ -167,7 +167,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
         await this.device.turn_on();
         break;
       case 2: // COOL
-        targetHeatingCoolingState = 'cold';
+        targetHeatingCoolingState = 'cool';
         await this.device.turn_on();
         break;
       case 3: // AUTO

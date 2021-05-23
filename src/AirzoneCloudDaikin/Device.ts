@@ -40,13 +40,13 @@ export class Device {
   }
 
   public toString(): string {
-    return `Device(name=${this.name}, is_on=${this.is_on}, mode=${this.mode}, ´ +
-      ´current_temp=${this.current_temperature}, target_temp=${this.target_temperature})`;
+    return `Device(name=${this.name}, is_on=${this.is_on}, mode=${this.mode}, ` +
+      `current_temp=${this.current_temperature}, target_temp=${this.target_temperature})`;
   }
 
   public str_complete(): string {
-    return `Device(name=${this.name}, is_on=${this.is_on}, mode=${this.mode}, ´ +
-      ´current_temp=${this.current_temperature}, target_temp=${this.target_temperature}, id=${this.id}, mac=${this.mac})`;
+    return `Device(name=${this.name}, is_on=${this.is_on}, mode=${this.mode}, ` +
+      `current_temp=${this.current_temperature}, target_temp=${this.target_temperature}, id=${this.id}, mac=${this.mac})`;
   }
 
   /*
