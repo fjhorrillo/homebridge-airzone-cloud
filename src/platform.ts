@@ -66,14 +66,14 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    this.log.trace(`Finished initializing platform: ${this.config.name}`);
+    this.log.debug(`Finished initializing platform: ${this.config.name}`);
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
     // in order to ensure they weren't added to homebridge already. This event can also be used
     // to start discovery of new accessories.
     this.api.on('didFinishLaunching', () => {
-      this.log.trace('Executed didFinishLaunching callback');
+      this.log.debug('Executed didFinishLaunching callback');
       // run the method to discover / register your devices as accessories
       if (!AirzoneCloudPlatformConfig.isDaikin(this)) {
         this.discoverDevices();
