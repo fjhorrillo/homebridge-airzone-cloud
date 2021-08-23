@@ -4,7 +4,7 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { MODES_CONVERTER, ECO_CONVERTER, VELOCITIES_CONVERTER, AIRFLOW_CONVERTER } from './contants';
+import { MODES_CONVERTER, ECO_CONVERTER, VELOCITIES_CONVERTER, AIRFLOW_CONVERTER } from './constants';
 import { AirzoneCloud, Device, Zone } from '.';
 
 /* Manage a AirzoneCloud system */

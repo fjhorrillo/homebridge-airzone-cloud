@@ -4,7 +4,7 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import { MODES_CONVERTER } from './contants';
+import { MODES_CONVERTER } from './constants';
 import { AirzoneCloudDaikin, Installation } from '.';
 
 /* Manage a AirzoneCloud device */

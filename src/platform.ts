@@ -40,6 +40,8 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
+    // Initialize logger
+    this.log = new DebugLogger(_log);
 
     // We can't start without being configured.
     if(!config) {
@@ -56,7 +58,6 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     if ((this.config as AirzoneCloudPlatformConfig).debug) {
       DebugLogger.setDebugEnabled(true);
     }
-    this.log = new DebugLogger(_log);
 
     this.log.debug(`config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
 

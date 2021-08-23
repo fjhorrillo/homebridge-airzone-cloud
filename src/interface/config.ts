@@ -35,7 +35,7 @@ export namespace AirzoneCloudPlatformConfig {
   export function isValid(platform: AirzoneCloudHomebridgePlatform): boolean {
     const cast = platform.config as AirzoneCloudPlatformConfig;
 
-    const validDebug = evaluate(platform, 'boolean', 'user_agent', cast.debug);
+    const validDebug = evaluate(platform, 'boolean', 'debug', cast.debug);
     const validUserAgent = evaluate(platform, 'string', 'user_agent', cast.user_agent);
     const validSystem = evaluate(platform, 'string', 'system', cast.system);
 

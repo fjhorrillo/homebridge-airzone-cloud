@@ -6,7 +6,7 @@ import { AirzoneCloudHomebridgePlatform } from '../platform';
 
 import fetch = require('node-fetch');
 
-import { API_LOGIN, API_INSTALLATION_RELATIONS, API_DEVICES, API_EVENTS } from './contants';
+import { API_LOGIN, API_INSTALLATION_RELATIONS, API_DEVICES, API_EVENTS } from './constants';
 import { Installation, Device } from '.';
 import { URL, URLSearchParams } from 'url';
 
