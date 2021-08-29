@@ -1,7 +1,7 @@
 import { PlatformConfig, AccessoryName, AccessoryIdentifier } from 'homebridge';
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-export interface User {
+interface User {
     email: string;
     password: string;
 }
@@ -30,9 +30,12 @@ function evaluate(platform: AirzoneCloudHomebridgePlatform, type: string, key: s
   return true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace AirzoneCloudPlatformConfig {
-  export function isValid(platform: AirzoneCloudHomebridgePlatform): boolean {
+export class AirzoneCloudPlatformConfig implements PlatformConfig {
+  private constructor() {
+    // Not need for static class method
+  }
+
+  public static isValid(platform: AirzoneCloudHomebridgePlatform): boolean {
     const cast = platform.config as AirzoneCloudPlatformConfig;
 
     const validDebug = evaluate(platform, 'boolean', 'debug', cast.debug);
@@ -48,7 +51,7 @@ export namespace AirzoneCloudPlatformConfig {
     return validDebug && validUserAgent && validSystem && validUser;
   }
 
-  export function toString(platform: AirzoneCloudHomebridgePlatform): string {
+  public static toString(platform: AirzoneCloudHomebridgePlatform): string {
     const cast = platform.config as AirzoneCloudPlatformConfig;
     return JSON.stringify(cast, (key, value) => {
       if (key === 'password' && typeof value === 'string') {
@@ -58,15 +61,18 @@ export namespace AirzoneCloudPlatformConfig {
     });
   }
 
-  export function isDaikin(platform: AirzoneCloudHomebridgePlatform): boolean {
+  public static isDaikin(platform: AirzoneCloudHomebridgePlatform): boolean {
     const cast = platform.config as AirzoneCloudPlatformConfig;
     return Boolean(cast.system.match(/dkn/g));
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace User {
-  export function isValid(platform: AirzoneCloudHomebridgePlatform, config: User): boolean {
+class User {
+  private constructor() {
+    // Not need for static class method
+  }
+
+  public static isValid(platform: AirzoneCloudHomebridgePlatform, config: User): boolean {
     const validEmail = evaluate(platform, 'string', 'email', config.email);
     const validPassword = evaluate(platform, 'string', 'password', config.password);
 
