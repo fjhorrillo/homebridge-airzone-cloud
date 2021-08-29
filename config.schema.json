@@ -20,10 +20,11 @@
         "type": "string",
         "required": true,
         "oneOf": [
+          { "title": "New AirzoneCloud", "enum": ["https://m.airzonecloud.com"] },
           { "title": "AirzoneCloud", "enum": ["https://www.airzonecloud.com"] },
           { "title": "DKN", "enum": ["https://dkn.airzonecloud.com"] }
         ],
-        "default": "https://www.airzonecloud.com"
+        "default": "https://m.airzonecloud.com"
       },
       "login": {
         "title": "Airzone Cloud credentials",
@@ -63,7 +64,7 @@
         "description": "Allow to change base url of the Airzone Cloud API if set.",
         "type": "string",
         "format": "uri",
-        "placeholder": "https://www.airzonecloud.com"
+        "placeholder": "https://m.airzonecloud.com"
       }
     }
   },

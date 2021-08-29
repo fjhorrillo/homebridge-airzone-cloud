@@ -121,7 +121,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
         for (const device of group.devices || []) {
           if (device.type === 'az_zone') {
             this.log.debug(`Device: ${device.name}<${device.device_id}>`);
-            const webserverInfo = await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, device.ws_id);
+            const webserverStatus = await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, device.ws_id);
             this.registerDevice({
               id: device.device_id,
               groupId: group.group_id,
@@ -129,7 +129,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
               name: device.name,
               serialNumber: device.ws_id,
               model: device.type,
-              firmwareRevision: webserverInfo.config.ws_fw,
+              firmwareRevision: webserverStatus.config.ws_fw,
             });
           }
         }
