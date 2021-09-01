@@ -57,8 +57,11 @@ export interface User {
   config: UserConfig;
   created_at: Date;
   confirmation_date: Date;
-  token?: string;
-  refreshToken?: string;
+}
+
+export interface LogedUser extends User {
+  token: string;
+  refreshToken: string;
 }
 
 /**

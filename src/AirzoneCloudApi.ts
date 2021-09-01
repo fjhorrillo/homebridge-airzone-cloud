@@ -5,10 +5,11 @@
 import { AirzoneCloudHomebridgePlatform } from './platform';
 
 import fetch = require('node-fetch');
+import { AirzoneCloudSocket } from './AirzoneCloudSocket';
 
 import { API_LOGIN, API_REFRESH_TOKEN, API_INSTALLATIONS, API_DEVICES, API_USER } from './constants';
 import { URL, URLSearchParams } from 'url';
-import { Installation, Webserver, Units, DeviceConfig, User, DeviceMode, SetpointAir } from './interface/airzonecloud';
+import { Installation, Webserver, Units, DeviceConfig, User, LogedUser, DeviceMode, SetpointAir } from './interface/airzonecloud';
 
 enum HTTPMethod {
   POST = 'POST',
@@ -24,8 +25,9 @@ export class AirzoneCloudApi {
   private _password: string;
   private _user_agent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile';
   private _base_url = 'https://m.airzonecloud.com';
-  private _token?: string;
-  private _refreshToken?: string;
+  private _token!: string;
+  private _refreshToken!: string;
+  private _airzoneCloudSocket!: AirzoneCloudSocket;
 
   /* Initialize API connection */
   private constructor(
@@ -67,7 +69,7 @@ export class AirzoneCloudApi {
    */
 
   /* Login to AirzoneCloud and return token */
-  public async _login(): Promise<string | undefined> {
+  private async _login(): Promise<LogedUser> {
     const payload = {
       'email': this._username,
       'password': this._password,
@@ -77,9 +79,13 @@ export class AirzoneCloudApi {
       const user = await this._post(API_LOGIN, payload);
       this._token = user.token;
       this._refreshToken = user.refreshToken;
-      this.platform.log.info(`Login success as ${user.email}`);
+      this.platform.log.info(`Logged in successfully as ${user.email}`);
 
-      return this._token;
+      // initialize websocket
+      this._airzoneCloudSocket = new AirzoneCloudSocket(this.platform, this._base_url, user.token);
+      await this._airzoneCloudSocket.connectUserSocket();
+
+      return user;
     } catch (error) {
       this.platform.log.error(error);
       throw new Error(error);
@@ -151,13 +157,13 @@ export class AirzoneCloudApi {
       headers: headers,
       body: json,
     };
-    this.platform.log.trace(`Request: ${options.method} ${options.url}` +
+    this.platform.log.debug(`Request: ${options.method} ${options.url}` +
       `${json?` body=${JSON.stringify(JSON.parse(options.body), this.obfusked)}`:''}`);
     const response = await fetch(options.url, options);
     if (response && response.ok) {
       if (response.status !== 204) {
         const data = await response.json();
-        this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
+        this.platform.log.debug(`Response: ${JSON.stringify(data)}`);
         return data;
       }
     } else if (response.status === 401 && this._refreshToken) {
@@ -165,18 +171,24 @@ export class AirzoneCloudApi {
       if (data.token) {
         this._token = data.token;
         this._refreshToken = data.refreshToken;
-        this.platform.log.info('Refresh token success');
+        this.platform.log.info('Refreshed token successfully');
+
+        // reconect websocket
+        this._airzoneCloudSocket.disconnectSocket();
+        await this._airzoneCloudSocket.connectUserSocket(data.token);
+        this.platform.log.info('Websocket reconnected');
+
         return await this._request(method, api_endpoint, params, headers, json);
       }
     } else {
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
         `${response.status === 400?` Response: ${JSON.stringify(await response.json())}`:''}`);
-      this.platform.log.trace(`Response: ${JSON.stringify(response)} for Request: ${JSON.stringify(options, this.obfusked)}`);
+      this.platform.log.debug(`Response: ${JSON.stringify(response)} for Request: ${JSON.stringify(options, this.obfusked)}`);
       throw new Error(`Status: ${response.status} ${response.statusText}`);
     }
   }
 
-  // Allow obfusk sensitive data
+  /* Allow obfusk sensitive data */
   private obfusked(key, value): string {
     if (key === 'password' && typeof value === 'string') {
       return value.replace(/./g, '*');
@@ -226,6 +238,7 @@ export class AirzoneCloudApi {
    */
   async getInstallation(installationId: string): Promise<Installation> {
     try {
+      await this._airzoneCloudSocket.listenInstallation(installationId);
       return await this._get(`${API_INSTALLATIONS}/${installationId}`);
     } catch (error) {
       this.platform.log.error(error);
