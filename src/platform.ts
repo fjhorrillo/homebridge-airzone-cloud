@@ -115,13 +115,20 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     // loop over the discovered devices and register each one if it has not already been registered
     for (let installation of await this.airzoneCloudApi.getInstallations()) {
       this.log.debug(`Installation: ${installation.name}<${installation.installation_id}>`);
+      // get all webservers
+      const webservers = {};
+      for (const ws_id of installation.ws_ids || []) {
+        webservers[ws_id] = await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, ws_id);
+      }
+      // get installation detail
       installation = await this.airzoneCloudApi.getInstallation(installation.installation_id);
       for (const group of installation.groups || []) {
         this.log.debug(`Group: ${group.name}<${group.group_id}>`);
         for (const device of group.devices || []) {
           if (device.type === 'az_zone') {
             this.log.debug(`Device: ${device.name}<${device.device_id}>`);
-            const webserverStatus = await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, device.ws_id);
+            const webserverStatus = webservers[device.ws_id] ||
+              await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, device.ws_id);
             this.registerDevice({
               id: device.device_id,
               groupId: group.group_id,

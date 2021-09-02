@@ -46,7 +46,7 @@ export class AirzoneCloudSocket {
       this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_installation", "${installationId}"]\x1b[0m`);
       this.userSocket.emit('listen_installation', installationId, async error => {
         // error is the response callback, it will be null if everything went well or an error in another case
-        if(error !== null) {
+        if (error !== null) {
           switch(error._id) {
             case 'tooManyConnections':
               this.platform.log.error('Error in listenInstallation');
@@ -56,7 +56,7 @@ export class AirzoneCloudSocket {
             default:
               this.platform.log.error(`Error in listenInstallation ${error}`);
               AirzoneCloudSocket.reconnectAttemps++;
-              if(AirzoneCloudSocket.reconnectAttemps <= 5) {
+              if (AirzoneCloudSocket.reconnectAttemps <= 5) {
                 this.platform.log.info(`Reconnection attempt ${AirzoneCloudSocket.reconnectAttemps}`);
 
                 this.disconnectSocket();
@@ -110,13 +110,26 @@ export class AirzoneCloudSocket {
 
       // register a catch-all listener
       this.userSocket.onAny(async (event, ...args) => {
-        this.platform.log.info('\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m ' +
-          `\x1b[33m${args?JSON.stringify([event].concat(args)):[event]}\x1b[0m`);
+        this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m${args?JSON.stringify([event].concat(args.filter((a)=> {
+          return !(a instanceof Function);
+        }))):[event]}\x1b[0m`);
       });
 
       this.userSocket.on('connect', async () => {
         this.platform.log.info('Websocket connected');
         resolve(true);
+      });
+
+      this.userSocket.io.on('reconnect', async attempt => {
+        this.platform.log.info(`Reconected after ${attempt} attempt(s)`);
+      });
+
+      this.userSocket.on('auth', async (event, callback) => {
+        if(event === 'authenticate') {
+          this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["${this.jwt}"]\x1b[0m`);
+          callback(this.jwt);
+        }
+        this.platform.log.debug('authenticate event, replied with a valid token');
       });
     });
   }

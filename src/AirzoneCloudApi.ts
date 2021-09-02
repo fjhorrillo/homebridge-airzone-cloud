@@ -87,8 +87,8 @@ export class AirzoneCloudApi {
 
       return user;
     } catch (error) {
-      this.platform.log.error(error);
-      throw new Error(error);
+      this.platform.log.error(`Error in login ${error}`);
+      throw new Error(`Error in login ${error}`);
     }
   }
 
@@ -225,8 +225,8 @@ export class AirzoneCloudApi {
     try {
       return (await this._get(API_INSTALLATIONS, params)).installations;
     } catch (error) {
-      this.platform.log.error(error);
-      throw new Error(error);
+      this.platform.log.error(`Error in getInstallations ${error}`);
+      throw new Error(`Error in getInstallations ${error}`);
     }
   }
 
@@ -241,8 +241,8 @@ export class AirzoneCloudApi {
       await this._airzoneCloudSocket.listenInstallation(installationId);
       return await this._get(`${API_INSTALLATIONS}/${installationId}`);
     } catch (error) {
-      this.platform.log.error(error);
-      throw new Error(error);
+      this.platform.log.error(`Error in getInstallation ${error}`);
+      throw new Error(`Error in getInstallation ${error}`);
     }
   }
 
@@ -260,8 +260,8 @@ export class AirzoneCloudApi {
     try {
       return await this._get(`${API_DEVICES}/wwss`, params);
     } catch (error) {
-      this.platform.log.error(error);
-      throw new Error(error);
+      this.platform.log.error(`Error in getWebservers ${error}`);
+      throw new Error(`Error in getWebservers ${error}`);
     }
   }
 
@@ -285,8 +285,8 @@ export class AirzoneCloudApi {
       webserver._id = webserverId;
       return webserver;
     } catch (error) {
-      this.platform.log.error(error);
-      throw new Error(error);
+      this.platform.log.error(`Error in getWebserverStatus ${error}`);
+      throw new Error(`Error in getWebserverStatus ${error}`);
     }
   }
 
@@ -309,8 +309,8 @@ export class AirzoneCloudApi {
     try {
       return await this._get(`${API_DEVICES}/${deviceId}/config`, params);
     } catch (error) {
-      this.platform.log.error(error);
-      throw new Error(error);
+      this.platform.log.error(`Error in getDeviceConfig ${error}`);
+      throw new Error(`Error in getDeviceConfig ${error}`);
     }
   }
 
