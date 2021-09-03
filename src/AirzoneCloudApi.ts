@@ -25,8 +25,8 @@ export class AirzoneCloudApi {
   private _password: string;
   private _user_agent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile';
   private _base_url = 'https://m.airzonecloud.com';
-  private _token!: string;
-  private _refreshToken!: string;
+  private _token?: string;
+  private _refreshToken?: string;
   private _airzoneCloudSocket!: AirzoneCloudSocket;
 
   /* Initialize API connection */
@@ -90,6 +90,22 @@ export class AirzoneCloudApi {
       this.platform.log.error(`Error in login ${error}`);
       throw new Error(`Error in login ${error}`);
     }
+  }
+
+  public async refreshToken(): Promise<string | undefined> {
+    if (this._refreshToken) {
+      const data = await this._get(`${API_REFRESH_TOKEN}/${this._refreshToken}`);
+      if (data.token) {
+        this._token = data.token;
+        this._refreshToken = data.refreshToken;
+        this.platform.log.info('Refreshed token successfully');
+
+        return data.token;
+      } else {
+        this.platform.log.error(`Refreshed token failed. ${JSON.stringify(data)}`);
+      }
+    }
+    return this._token = undefined;
   }
 
   /* Do a http GET request on an api endpoint */
@@ -167,18 +183,15 @@ export class AirzoneCloudApi {
         return data;
       }
     } else if (response.status === 401 && this._refreshToken) {
-      const data = await this._get(`${API_REFRESH_TOKEN}/${this._refreshToken!}`);
-      if (data.token) {
-        this._token = data.token;
-        this._refreshToken = data.refreshToken;
-        this.platform.log.info('Refreshed token successfully');
-
+      if (await this.refreshToken() || await this._login()) {
         // reconect websocket
         this._airzoneCloudSocket.disconnectSocket();
-        await this._airzoneCloudSocket.connectUserSocket(data.token);
+        await this._airzoneCloudSocket.connectUserSocket(this._token);
         this.platform.log.info('Websocket reconnected');
 
         return await this._request(method, api_endpoint, params, headers, json);
+      } else {
+        throw new Error(`Status: ${response.status} ${response.statusText}`);
       }
     } else {
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
