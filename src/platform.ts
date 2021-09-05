@@ -5,6 +5,7 @@ import { AirzoneCloudPlatformAccessory } from './platformAccessory';
 
 import { AirzoneCloudPlatformConfig } from './interface/config';
 import { AirzoneCloudApi } from './AirzoneCloudApi';
+import { DeviceStatus } from './interface/airzonecloud';
 
 /**
  * HomebridgePlatform
@@ -20,6 +21,7 @@ export interface DeviceType {
   serialNumber: string;
   model: string;
   firmwareRevision: string;
+  status: DeviceStatus;
 }
 
 export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
@@ -137,6 +139,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
               serialNumber: device.ws_id,
               model: device.type,
               firmwareRevision: webserverStatus.config.ws_fw,
+              status: device.status,
             });
           }
         }
@@ -199,7 +202,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
  * DebugLogger
  * Extend loging to manage debug mode
  */
-class DebugLogger implements Logger {
+export class DebugLogger implements Logger {
   private static debugEnabled;
 
   constructor(private readonly _log: Logger) {
@@ -246,4 +249,9 @@ class DebugLogger implements Logger {
   static setDebugEnabled(enabled = true) {
     DebugLogger.debugEnabled = enabled;
   }
+
+  static isDebugEnabled() {
+    return DebugLogger.debugEnabled;
+  }
+
 }

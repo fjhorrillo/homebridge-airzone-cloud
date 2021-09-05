@@ -112,12 +112,29 @@ export interface DeviceMeta {
   zone_number?: number;
 }
 
+export interface DeviceStatus {
+  power: boolean;
+  humidity: number;
+  local_temp: Temperature;
+  setpoint_air_stop: Temperature;
+  setpoint_air_auto: Temperature;
+  setpoint_air_cool: Temperature;
+  setpoint_air_heat: Temperature;
+  setpoint_air_vent: Temperature;
+  setpoint_air_dry: Temperature;
+  step: Temperature;
+  mode: DeviceMode;
+  mode_available: DeviceMode[];
+  units: Units;
+}
+
 export interface Device {
   device_id: string;
   meta: DeviceMeta;
   type: string;
   ws_id: string;
   name: string;
+  status: DeviceStatus;
 }
 
 export interface Group {

@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
-import { AirzoneCloudHomebridgePlatform, DeviceType } from './platform';
-import { DeviceMode, Temperature, Units } from './interface/airzonecloud';
+import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger } from './platform';
+import { DeviceMode, Units } from './interface/airzonecloud';
 
 /**
  * Internal types
@@ -18,14 +18,6 @@ enum TemperatureDisplayUnits {
   FAHRENHEIT = 1
 }
 
-interface Data {
-  humidity: number;         // Min Value 0, Max Value 100, Min Step 1
-  temperature: Temperature; // Min Value 0, Max Value 100, Min Step 0.1
-  target_temperature: Temperature;  // Min Value 10, Max Value 38, Min Step 0.1
-  mode: DeviceMode;                 // 0:STOP, 2:COOL, 3:HEAT, 4:FAN, 5:DRY
-  units: Units;                     // 0:CELSIUS, 1:FAHRENHEIT
-}
-
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -34,13 +26,6 @@ interface Data {
 export class AirzoneCloudPlatformAccessory {
   private service: Service;
   private device: DeviceType;
-  private data: Data = {
-    humidity: 0,
-    temperature: { celsius: 25.0, fah: 77.0 },
-    target_temperature: { celsius: 25.0, fah: 77.0 },
-    mode: DeviceMode.STOP,
-    units: Units.CELSIUS,
-  };
 
   constructor(
     private readonly platform: AirzoneCloudHomebridgePlatform,
@@ -73,9 +58,15 @@ export class AirzoneCloudPlatformAccessory {
       .onGet(this.getCurrentHeatingCoolingState.bind(this)); // GET - bind to the `getCurrentHeatingCoolingState` method below
 
     // register handlers for the TargetHeatingCoolingState Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+    const targetHeatingCoolingState = this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
       .onSet(this.setTargetHeatingCoolingState.bind(this))   // SET - bind to the `setTargetHeatingCoolingState` method below
       .onGet(this.getTargetHeatingCoolingState.bind(this));  // GET - bind to the `getTargetHeatingCoolingState` method below
+    targetHeatingCoolingState.props.validValues = this.device.status.mode_available.includes(DeviceMode.AUTO) ?
+      [HeatingCoolingState.OFF, HeatingCoolingState.HEAT, HeatingCoolingState.COOL, HeatingCoolingState.AUTO] :
+      [HeatingCoolingState.OFF, HeatingCoolingState.HEAT, HeatingCoolingState.COOL];
+
+    this.platform.log.info(`\x1b[90m${this.device.name}: Mode available -> ${JSON.stringify(this.device.status.mode_available)}` +
+      `Valid values -> ${JSON.stringify(targetHeatingCoolingState.props.validValues)}\x1b[0m`);
 
     // register handlers for the CurrentTemperature Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -91,9 +82,11 @@ export class AirzoneCloudPlatformAccessory {
       .onSet(this.setTemperatureDisplayUnits.bind(this))     // SET - bind to the `setTemperatureDisplayUnits` method below
       .onGet(this.getTemperatureDisplayUnits.bind(this));    // GET - bind to the `getTemperatureDisplayUnits` method below
 
-    // register handlers for the TemperatureDisplayUnits CurrentRelativeHumidity
-    this.service.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
-      .onGet(this.getCurrentRelativeHumidity.bind(this));    // GET - bind to the `getCurrentRelativeHumidity` method below
+    // register handlers for the  CurrentRelativeHumidity Characteristic
+    if (this.device.status.humidity) {
+      this.service.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
+        .onGet(this.getCurrentRelativeHumidity.bind(this));    // GET - bind to the `getCurrentRelativeHumidity` method below
+    }
 
     /**
      * Creating multiple services of the same type.
@@ -114,26 +107,13 @@ export class AirzoneCloudPlatformAccessory {
       this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');*/
 
     /**
-     * Updating characteristics values asynchronously.
-     *
-     * Example showing how to update the state of a Characteristic asynchronously instead
-     * of using the `on('get')` handlers.
-     * Here we change update the motion sensor trigger states on and off every 10 seconds
-     * the `updateCharacteristic` method.
-     *
+     * Here we trace the device status every 10 seconds
      */
-    /*let motionDetected = false;
-    setInterval(() => {
-      // EXAMPLE - inverse the trigger
-      motionDetected = !motionDetected;
-
-      // push the new value to HomeKit
-      motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-      motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
-
-      this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-      this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);*/
+    if (DebugLogger.isDebugEnabled()) {
+      setInterval(() => {
+        this.platform.log.debug(`${this.device.name}: Status -> ${JSON.stringify(this.device.status)}`);
+      }, 10000);
+    }
   }
 
   /**
@@ -157,36 +137,29 @@ export class AirzoneCloudPlatformAccessory {
    */
   async getCurrentHeatingCoolingState(): Promise<CharacteristicValue> { // Update is async by websocket
     // CurrentHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL
-    let currentHeatingCoolingState = HeatingCoolingState.OFF;
-
-    // Parse from DeviceMode to HeatingCoolingState
-    switch (this.data.mode) {
-      case DeviceMode.STOP:
-      case DeviceMode.FAN:
-      case DeviceMode.DRY:
-        currentHeatingCoolingState = HeatingCoolingState.OFF;
-        break;
-      case DeviceMode.AUTO:
-        if (this.data.temperature.celsius < this.data.target_temperature.celsius) { // If themperture is lower
-          currentHeatingCoolingState = HeatingCoolingState.HEAT;
-        } else if (this.data.temperature.celsius > this.data.target_temperature.celsius) { // If temperture is higher
-          currentHeatingCoolingState = HeatingCoolingState.COOL;
-        }
-        break;
-      case DeviceMode.COOLING:
-      case DeviceMode.COOL_AIR:
-      case DeviceMode.COOL_RADIANT:
-      case DeviceMode.COOL_COMB:
-        currentHeatingCoolingState = HeatingCoolingState.COOL;
-        break;
-      case DeviceMode.HEATING:
-      case DeviceMode.EMERGENCY_HEAT:
-      case DeviceMode.HEAT_AIR:
-      case DeviceMode.HEAT_RADIANT:
-      case DeviceMode.HEAT_COMB:
-        currentHeatingCoolingState = HeatingCoolingState.HEAT;
-        break;
-    }
+    const currentHeatingCoolingState = this.device.status.power ? (function(mode: DeviceMode) {
+      switch(mode) {
+        case DeviceMode.STOP:
+        case DeviceMode.FAN:
+        case DeviceMode.DRY:
+          return HeatingCoolingState.OFF;
+        case DeviceMode.AUTO:
+          return HeatingCoolingState.AUTO;
+        case DeviceMode.COOLING:
+        case DeviceMode.COOL_AIR:
+        case DeviceMode.COOL_RADIANT:
+        case DeviceMode.COOL_COMB:
+          return HeatingCoolingState.COOL;
+        case DeviceMode.HEATING:
+        case DeviceMode.EMERGENCY_HEAT:
+        case DeviceMode.HEAT_AIR:
+        case DeviceMode.HEAT_RADIANT:
+        case DeviceMode.HEAT_COMB:
+          return HeatingCoolingState.HEAT;
+        default:
+          return HeatingCoolingState.OFF;
+      }
+    })(this.device.status.mode) : HeatingCoolingState.OFF;
 
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
     `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}]`);
@@ -196,32 +169,29 @@ export class AirzoneCloudPlatformAccessory {
 
   async getTargetHeatingCoolingState(): Promise<CharacteristicValue> { // Update is async by websocket
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
-    let targetHeatingCoolingState = HeatingCoolingState.OFF;
-
-    // Parse from DeviceMode to HeatingCoolingState
-    switch (this.data.mode) {
-      case DeviceMode.STOP:
-      case DeviceMode.FAN:
-      case DeviceMode.DRY:
-        targetHeatingCoolingState = HeatingCoolingState.OFF;
-        break;
-      case DeviceMode.AUTO:
-        targetHeatingCoolingState = HeatingCoolingState.AUTO;
-        break;
-      case DeviceMode.COOLING:
-      case DeviceMode.COOL_AIR:
-      case DeviceMode.COOL_RADIANT:
-      case DeviceMode.COOL_COMB:
-        targetHeatingCoolingState = HeatingCoolingState.COOL;
-        break;
-      case DeviceMode.HEATING:
-      case DeviceMode.EMERGENCY_HEAT:
-      case DeviceMode.HEAT_AIR:
-      case DeviceMode.HEAT_RADIANT:
-      case DeviceMode.HEAT_COMB:
-        targetHeatingCoolingState = HeatingCoolingState.HEAT;
-        break;
-    }
+    const targetHeatingCoolingState = this.device.status.power ? (function(mode: DeviceMode) {
+      switch(mode) {
+        case DeviceMode.STOP:
+        case DeviceMode.FAN:
+        case DeviceMode.DRY:
+          return HeatingCoolingState.OFF;
+        case DeviceMode.AUTO:
+          return HeatingCoolingState.AUTO;
+        case DeviceMode.COOLING:
+        case DeviceMode.COOL_AIR:
+        case DeviceMode.COOL_RADIANT:
+        case DeviceMode.COOL_COMB:
+          return HeatingCoolingState.COOL;
+        case DeviceMode.HEATING:
+        case DeviceMode.EMERGENCY_HEAT:
+        case DeviceMode.HEAT_AIR:
+        case DeviceMode.HEAT_RADIANT:
+        case DeviceMode.HEAT_COMB:
+          return HeatingCoolingState.HEAT;
+        default:
+          return HeatingCoolingState.OFF;
+      }
+    })(this.device.status.mode) : HeatingCoolingState.OFF;
 
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetHeatingCoolingState -> ` +
     `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}]`);
@@ -231,39 +201,32 @@ export class AirzoneCloudPlatformAccessory {
 
   async getCurrentTemperature(): Promise<CharacteristicValue> {
     // CurrentTemperature => Min Value 0, Max Value 100, Min Step 0.1
-    const currentTemperature = this.data.units ? this.data.temperature.fah : this.data.temperature.celsius;
+    const currentTemperature = this.device.status.units ? this.device.status.local_temp.fah : this.device.status.local_temp.celsius;
 
-    this.platform.airzoneCloudApi.getDeviceConfig(this.device.id, this.device.installationId, this.data.units).then(deviceConfig => {
-      // Min Value 0, Max Value 100, Min Step 0.1
-      const currentTemperature = this.data.units ? deviceConfig.local_temp.fah : deviceConfig.local_temp.celsius;
-      this.data.temperature = deviceConfig.local_temp;
-
-      this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
-      `${currentTemperature}º${TemperatureDisplayUnits[this.data.units].charAt(0)}`);
-
-      // push the new value to HomeKit
-      this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, currentTemperature);
-    });
+    this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
+      `${currentTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)}`);
 
     return currentTemperature;
   }
 
   async getTargetTemperature(): Promise<CharacteristicValue> { // Update is async by websocket
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
-    const targetTemperature = this.data.units ? this.data.target_temperature.fah : this.data.target_temperature.celsius;
+    const setpointTemperature = this.device.status.power ?
+      this.device.status[this.getTargetTempertureName()] : this.device.status.setpoint_air_stop;
+    const targetTemperature = this.device.status.units ? setpointTemperature.fah : setpointTemperature.celsius;
 
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetTemperature -> ` +
-    `${targetTemperature}º${TemperatureDisplayUnits[this.data.units].charAt(0)}`);
+    `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)}`);
 
     return targetTemperature;
   }
 
   async getTemperatureDisplayUnits(): Promise<CharacteristicValue> {
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
-    this.data.units = (await this.platform.airzoneCloudApi.getUser()).config.units;
+    this.device.status.units = (await this.platform.airzoneCloudApi.getUser()).config.units;
 
     // Parse from Units to TemperatureDisplayUnits
-    const temperatureDisplayUnits = this.data.units as number as TemperatureDisplayUnits;
+    const temperatureDisplayUnits = this.device.status.units as number as TemperatureDisplayUnits;
 
     this.platform.log.debug(`${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
       `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}]`);
@@ -273,7 +236,7 @@ export class AirzoneCloudPlatformAccessory {
 
   async getCurrentRelativeHumidity(): Promise<CharacteristicValue> { // Update is async by websocket
     // CurrentRelativeHumidity => Min Value 0, Max Value 100, Min Step 1
-    const currentRelativeHumidity = this.data.humidity;
+    const currentRelativeHumidity = this.device.status.humidity;
 
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentRelativeHumidity -> ` +
       `${currentRelativeHumidity}%`);
@@ -289,62 +252,83 @@ export class AirzoneCloudPlatformAccessory {
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     const targetHeatingCoolingState = value as HeatingCoolingState;
 
-    // Mode => 0:STOP, 2:COOL, 3:HEAT, 4:FAN, 5:DRY
-    let mode = DeviceMode.STOP;
-    switch (targetHeatingCoolingState) {
-      case HeatingCoolingState.OFF:
-        mode = DeviceMode.STOP;
-        break;
-      case HeatingCoolingState.HEAT:
-        mode = DeviceMode.HEATING;
-        break;
-      case HeatingCoolingState.COOL:
-        mode = DeviceMode.COOLING;
-        break;
-      case HeatingCoolingState.AUTO:
-        // TODO: validate if AUTO mode is allowed
-        if (this.data.temperature.celsius < this.data.target_temperature.celsius) { // If themperture is lower
-          mode = DeviceMode.HEATING;
-        } else if (this.data.temperature.celsius > this.data.target_temperature.celsius) { // If temperture is higher
-          mode = DeviceMode.COOLING;
-        }
-        break;
-    }
-    this.data.mode = mode;
-    this.platform.airzoneCloudApi.setDeviceMode(this.device.installationId, this.device.id, mode);
+    // transform
+    const mode = (function(mode: HeatingCoolingState) {
+      switch (mode) {
+        case HeatingCoolingState.OFF: return DeviceMode.STOP;
+        case HeatingCoolingState.HEAT: return DeviceMode.HEATING;
+        case HeatingCoolingState.COOL: return DeviceMode.COOLING;
+        case HeatingCoolingState.AUTO: return DeviceMode.AUTO;
+        default: return DeviceMode.STOP;
+      }
+    })(targetHeatingCoolingState);
+    const power = mode !== DeviceMode.STOP;
 
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
-      `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] => Mode ${DeviceMode[mode]}[${mode}]`);
+      `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}] and ` +
+      `Power from ${this.device.status.power} to ${power}`);
+
+    // save locally
+    if (this.device.status.mode_available.includes(mode)) {
+      this.device.status.mode = mode;
+    }
+    this.device.status.power = power;
+
+    // save remotely
+    if (this.device.status.mode_available.includes(mode)) {
+      this.platform.airzoneCloudApi.setDeviceMode(this.device.installationId, this.device.id, mode);
+    } else { // If the device does not have this mode it is not changed
+      this.platform.log.warn(`${this.device.name}: mode ${DeviceMode[mode]}[${mode}] not supported`);
+    }
+    this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power);
+
+    this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
+      `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}]`);
   }
 
   async setTargetTemperature(value: CharacteristicValue) {
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     const targetTemperature = value as number;
 
-    switch (this.data.units) {
-      case Units.CELSIUS:
-        this.data.target_temperature.celsius = targetTemperature;
-        this.data.target_temperature.fah = this.toFahrenheit(targetTemperature);
-        break;
-      case Units.FARENHEIT:
-        this.data.target_temperature.celsius = this.toCelsius(targetTemperature);
-        this.data.target_temperature.fah = targetTemperature;
-        break;
-    }
+    // transform
+    const temperature = (function(value: number, units: Units) {
+      switch(units) {
+        case Units.CELSIUS:
+          return {
+            celsius: value,
+            fah: Math.round(((value * 9 / 5) + 32) * 10) / 10,
+          };
+        case Units.FARENHEIT:
+          return {
+            celsius: Math.round(((value - 32) * 5 / 9) * 10) / 10,
+            fah: value,
+          };
+      }
+    })(targetTemperature, this.device.status.units);
+
+    // save locally
+    this.device.status[this.getTargetTempertureName()] = temperature;
+
+    // save remotely
     this.platform.airzoneCloudApi.setTemperature(
-      this.device.installationId, this.device.id, this.data.mode, targetTemperature, this.data.units,
+      this.device.installationId, this.device.id, this.device.status.mode, targetTemperature, this.device.status.units,
     );
 
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ` +
-      `${targetTemperature}º${TemperatureDisplayUnits[this.data.units].charAt(0)}`);
+      `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)}`);
   }
 
   async setTemperatureDisplayUnits(value: CharacteristicValue) {
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
     const temperatureDisplayUnits = value as TemperatureDisplayUnits;
 
+    // transform
     const units = temperatureDisplayUnits as number as Units;
-    this.data.units = units;
+
+    // save locally
+    this.device.status.units = units;
+
+    // save remotely
     this.platform.airzoneCloudApi.setUnits(units);
 
     this.platform.log.info(`${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +
@@ -352,18 +336,32 @@ export class AirzoneCloudPlatformAccessory {
   }
 
   /**
-   * Transform between units on steeps of 0.1
+   * Gets target temperature name according to device mode
    */
-  toFahrenheit(temperature: number): number {
-    // Convert from Celsius to Fahrenheit
-    const fahrenheit = (temperature * 9 / 5) + 32;
-    return Math.round(fahrenheit * 10) / 10;
-  }
-
-  toCelsius(temperature: number): number {
-    // Convert from Fahrenheit to Celsius
-    const celsius = (temperature - 32) * 5 / 9;
-    return Math.round(celsius * 10) / 10;
+  private getTargetTempertureName(mode?: DeviceMode): string {
+    switch(mode || this.device.status.mode) {
+      case DeviceMode.STOP:
+        return 'setpoint_air_stop';
+      case DeviceMode.FAN:
+        return 'setpoint_air_vent';
+      case DeviceMode.DRY:
+        return 'setpoint_air_dry';
+      case DeviceMode.AUTO:
+        return 'setpoint_air_auto';
+      case DeviceMode.COOLING:
+      case DeviceMode.COOL_AIR:
+      case DeviceMode.COOL_RADIANT:
+      case DeviceMode.COOL_COMB:
+        return 'setpoint_air_cool';
+      case DeviceMode.HEATING:
+      case DeviceMode.EMERGENCY_HEAT:
+      case DeviceMode.HEAT_AIR:
+      case DeviceMode.HEAT_RADIANT:
+      case DeviceMode.HEAT_COMB:
+        return 'setpoint_air_heat';
+      default:
+        return 'setpoint_air_stop';
+    }
   }
 
 }

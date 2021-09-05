@@ -239,7 +239,7 @@ export class AirzoneCloudApi {
       return (await this._get(API_INSTALLATIONS, params)).installations;
     } catch (error) {
       this.platform.log.error(`Error in getInstallations ${error}`);
-      throw new Error(`Error in getInstallations ${error}`);
+      throw new Error('Error in getInstallations');
     }
   }
 
@@ -251,11 +251,17 @@ export class AirzoneCloudApi {
    */
   async getInstallation(installationId: string): Promise<Installation> {
     try {
-      await this._airzoneCloudSocket.listenInstallation(installationId);
-      return await this._get(`${API_INSTALLATIONS}/${installationId}`);
+      const deviceStatus = await this._airzoneCloudSocket.listenInstallation(installationId);
+      const installation = await this._get(`${API_INSTALLATIONS}/${installationId}`);
+      for (const group of installation.groups || []) {
+        for (const device of group.devices || []) {
+          device.status = deviceStatus[device.device_id];
+        }
+      }
+      return installation;
     } catch (error) {
       this.platform.log.error(`Error in getInstallation ${error}`);
-      throw new Error(`Error in getInstallation ${error}`);
+      throw new Error('Error in getInstallation');
     }
   }
 
@@ -274,7 +280,7 @@ export class AirzoneCloudApi {
       return await this._get(`${API_DEVICES}/wwss`, params);
     } catch (error) {
       this.platform.log.error(`Error in getWebservers ${error}`);
-      throw new Error(`Error in getWebservers ${error}`);
+      throw new Error('Error in getWebservers');
     }
   }
 
@@ -294,12 +300,13 @@ export class AirzoneCloudApi {
     }
 
     try {
+      //await this._airzoneCloudSocket.listenWebserver(webserverId);
       const webserver = await this._get(`${API_DEVICES}/ws/${webserverId}/status`, params);
       webserver._id = webserverId;
       return webserver;
     } catch (error) {
       this.platform.log.error(`Error in getWebserverStatus ${error}`);
-      throw new Error(`Error in getWebserverStatus ${error}`);
+      throw new Error('Error in getWebserverStatus');
     }
   }
 
@@ -323,12 +330,17 @@ export class AirzoneCloudApi {
       return await this._get(`${API_DEVICES}/${deviceId}/config`, params);
     } catch (error) {
       this.platform.log.error(`Error in getDeviceConfig ${error}`);
-      throw new Error(`Error in getDeviceConfig ${error}`);
+      throw new Error('Error in getDeviceConfig');
     }
   }
 
   public async getUser(): Promise<User> {
-    return (await this._get(API_USER));
+    try {
+      return (await this._get(API_USER));
+    } catch (error) {
+      this.platform.log.error(`Error in getUser ${error}`);
+      throw new Error('Error in getUser');
+    }
   }
 
   public async setUnits(units: Units) {
@@ -336,7 +348,27 @@ export class AirzoneCloudApi {
       'units': units.valueOf(),
     };
 
-    return await this._patch(`${API_USER}/config`, payload);
+    try {
+      return await this._patch(`${API_USER}/config`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setUnits ${error}`);
+      throw new Error('Error in setUnits');
+    }
+  }
+
+  public async setDevicePower(installationId: string, deviceId: string, power: boolean) {
+    const payload = {
+      'param': 'power',
+      'value': power,
+      'installation_id': installationId,
+    };
+
+    try {
+      return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setDevicePower ${error}`);
+      throw new Error('Error in setDevicePower');
+    }
   }
 
   public async setDeviceMode(installationId: string, deviceId: string, mode: DeviceMode) {
@@ -346,33 +378,27 @@ export class AirzoneCloudApi {
       'installation_id': installationId,
     };
 
-    return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
+    try {
+      return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setDeviceMode ${error}`);
+      throw new Error('Error in setDeviceMode');
+    }
   }
 
   public async setTemperature(installationId: string, deviceId: string, mode: DeviceMode, temperature: number, units: Units) {
-    let setpoint_air = SetpointAir.STOP;
-    switch (mode) {
-      case DeviceMode.STOP:
-        setpoint_air = SetpointAir.STOP;
-        break;
-      case DeviceMode.AUTO:
-        setpoint_air = SetpointAir.AUTO;
-        break;
-      case DeviceMode.COOLING:
-        setpoint_air = SetpointAir.COOL;
-        break;
-      case DeviceMode.HEATING:
-        setpoint_air = SetpointAir.HEAT;
-        break;
-      case DeviceMode.FAN:
-        setpoint_air = SetpointAir.VENT;
-        break;
-      case DeviceMode.DRY:
-        setpoint_air = SetpointAir.DRY;
-        break;
-    }
     const payload = {
-      'param': setpoint_air,
+      'param': (function(mode: DeviceMode): string {
+        switch (mode) {
+          case DeviceMode.STOP: return SetpointAir.STOP;
+          case DeviceMode.AUTO: return SetpointAir.AUTO;
+          case DeviceMode.COOLING: return SetpointAir.COOL;
+          case DeviceMode.HEATING: return SetpointAir.HEAT;
+          case DeviceMode.FAN: return SetpointAir.VENT;
+          case DeviceMode.DRY: return SetpointAir.DRY;
+          default: return SetpointAir.STOP;
+        }
+      })(mode),
       'value': temperature,
       'installation_id': installationId,
       'opts': {

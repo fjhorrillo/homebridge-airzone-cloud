@@ -13,6 +13,7 @@ export class AirzoneCloudSocket {
   private userSocket: Socket;
   private static reconnectAttemps = 0;
   private listeningInstallationId?: string;
+  private listenInstallationDevices: {[key: string]: {[key: string]: unknown}} = {};
   private listeningWebserverId?: string;
   private listenFinished?: (v: boolean) => void;
 
@@ -43,11 +44,11 @@ export class AirzoneCloudSocket {
   }
 
   /* Starting to listen to the events of an installation */
-  public async listenInstallation(installationId: string) {
+  public async listenInstallation(installationId: string): Promise<{[key: string]: unknown}> {
     this.listeningInstallationId = installationId;
     await this.clearListeners();
     return new Promise ((resolve, reject) => {
-      this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_installation", "${installationId}"]\x1b[0m`);
+      this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_installation", "${installationId}"]\x1b[0m`);
       this.userSocket.emit('listen_installation', installationId, async data => {
         // data is the response callback, it will be null if everything went well or an error in another case
         if (data !== null) {
@@ -74,11 +75,11 @@ export class AirzoneCloudSocket {
           }
         } else {
           AirzoneCloudSocket.reconnectAttemps = 0; // If no error is obtained, the attempt counter is reset
-          this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
         }
         await new Promise<boolean>(resolver => this.listenFinished = resolver);
         this.platform.log.info('The installation status was fully received');
-        return resolve(true);
+        return resolve(this.listenInstallationDevices);
       });
     });
   }
@@ -88,7 +89,7 @@ export class AirzoneCloudSocket {
     this.listeningWebserverId = webserverId;
     await this.clearListeners();
     return new Promise ((resolve, reject) => {
-      this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_ws", "${webserverId}"]\x1b[0m`);
+      this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_ws", "${webserverId}"]\x1b[0m`);
       this.userSocket.emit('listen_ws', webserverId, async data => {
         // data is the response callback, it will be null if everything went well or an error in another case
         if (data !== null) {
@@ -113,7 +114,7 @@ export class AirzoneCloudSocket {
           }
         } else {
           AirzoneCloudSocket.reconnectAttemps = 0; // If no error is obtained, the attempt counter is reset
-          this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
         }
         return resolve(true);
       });
@@ -123,7 +124,7 @@ export class AirzoneCloudSocket {
   /* Stop listening for events from an installation (free socket traffic) */
   public async clearListeners() {
     return new Promise ((resolve, reject) => {
-      this.platform.log.info('\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["clear_listeners"]\x1b[0m');
+      this.platform.log.debug('\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["clear_listeners"]\x1b[0m');
       this.userSocket.emit('clear_listeners', data => {
         if(data !== null) {
           this.platform.log.error(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
@@ -131,7 +132,7 @@ export class AirzoneCloudSocket {
         } else {
           this.listeningInstallationId = undefined;
           this.listeningWebserverId = undefined;
-          this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
         }
         return resolve(true);
       });
@@ -169,9 +170,10 @@ export class AirzoneCloudSocket {
       this._connect(jwt);
       // register a catch-all listener
       this.userSocket.onAny(async (event, ...args) => {
-        this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m${args?JSON.stringify([event].concat(args.filter((a)=> {
-          return !(a instanceof Function);
-        }))):[event]}\x1b[0m`);
+        this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m${args?JSON.stringify([event].concat(args.filter(
+          (arg)=> {
+            return !(arg instanceof Function);
+          }))):[event]}\x1b[0m`);
 
         // event data
         const eventProps = typeof event === 'string' ? event.split('.') : [];
@@ -181,12 +183,28 @@ export class AirzoneCloudSocket {
           deviceId: eventProps[2] === undefined ? null : eventProps[2],
 
         };
+        const receivedData = args[0];
+        //const dataToUpdate = {};
 
         switch(event.name) {
+          case 'USERS':
+            if (event.type === 'update' && receivedData.param === 'units') {
+              Object.keys(this.listenInstallationDevices).forEach( deviceId => {
+                this.listenInstallationDevices[deviceId].units = receivedData.value;
+              });
+            }
+            break;
+          case 'DEVICE_STATE':
+            this.listenInstallationDevices[receivedData.device_id] = { units: 0 };
+            this.handlerReceivedData(event.name, receivedData);
+            break;
           case 'DEVICE_STATE_END':
             if (this.listenFinished) {
               this.listenFinished(true);
             }
+            break;
+          case 'DEVICES_UPDATES':
+            this.handlerReceivedData(event.name, receivedData);
             break;
         }
       });
@@ -243,7 +261,7 @@ export class AirzoneCloudSocket {
 
       this.userSocket.on('auth', async (event, callback) => {
         if(event === 'authenticate') {
-          this.platform.log.info(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["${this.jwt}"]\x1b[0m`);
+          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["${this.jwt}"]\x1b[0m`);
           callback(this.jwt);
         }
         this.platform.log.debug('authenticate event, replied with a valid token');
@@ -270,6 +288,36 @@ export class AirzoneCloudSocket {
       this.platform.log.debug(`Refresh listener for webserver ${this.listeningWebserverId}`);
       // Reconnect to get the updated information
       await this.listenWebserver(this.listeningWebserverId);
+    }
+  }
+
+  handlerReceivedData(eventName: string, event) {
+    const status = (event.change !== undefined) ?
+      (event.change.status !== undefined ? event.change.status : {}) :
+      (event.status !== undefined ? event.status : {});
+
+    const data = this.listenInstallationDevices[event.device_id];
+    if (data) {
+      Object.keys(status).forEach( param => {
+        if ([
+          'power',
+          'humidity',
+          'local_temp',
+          'setpoint_air_stop',
+          'setpoint_air_auto',
+          'setpoint_air_cool',
+          'setpoint_air_heat',
+          'setpoint_air_vent',
+          'setpoint_air_dry',
+          'step',
+          'mode',
+          'mode_available',
+        ].includes(param)) {
+          data[param] = status[param];
+        }
+      });
+    } else {
+      this.platform.log.warn(`[${eventName}] Event not implemented. ${JSON.stringify(event)}`);
     }
   }
 
