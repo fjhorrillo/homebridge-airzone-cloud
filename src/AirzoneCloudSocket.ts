@@ -232,8 +232,6 @@ export class AirzoneCloudSocket {
       });
 
       this.userSocket.io.on('error', async error => {
-        this.platform.log.debug(`Disconnect socket error: ${JSON.stringify(error)}`);
-
         if(error['description'] === 401) {
           this.platform.log.error('Error 401 socketservice');
           try {

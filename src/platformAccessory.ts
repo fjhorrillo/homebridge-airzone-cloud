@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
 import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger } from './platform';
-import { DeviceMode, Units } from './interface/airzonecloud';
+import { DeviceMode, Power, Units } from './interface/airzonecloud';
 
 /**
  * Internal types
@@ -65,8 +65,8 @@ export class AirzoneCloudPlatformAccessory {
       [HeatingCoolingState.OFF, HeatingCoolingState.HEAT, HeatingCoolingState.COOL, HeatingCoolingState.AUTO] :
       [HeatingCoolingState.OFF, HeatingCoolingState.HEAT, HeatingCoolingState.COOL];
 
-    this.platform.log.info(`\x1b[90m${this.device.name}: Mode available -> ${JSON.stringify(this.device.status.mode_available)}` +
-      `Valid values -> ${JSON.stringify(targetHeatingCoolingState.props.validValues)}\x1b[0m`);
+    this.platform.log.debug(`\x1b[90m${this.device.name}: Mode available -> ${JSON.stringify(this.device.status.mode_available)}` +
+      `, Valid values -> ${JSON.stringify(targetHeatingCoolingState.props.validValues)}\x1b[0m`);
 
     // register handlers for the CurrentTemperature Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -199,7 +199,7 @@ export class AirzoneCloudPlatformAccessory {
     return targetHeatingCoolingState;
   }
 
-  async getCurrentTemperature(): Promise<CharacteristicValue> {
+  async getCurrentTemperature(): Promise<CharacteristicValue> { // Update is async by websocket
     // CurrentTemperature => Min Value 0, Max Value 100, Min Step 0.1
     const currentTemperature = this.device.status.units ? this.device.status.local_temp.fah : this.device.status.local_temp.celsius;
 
@@ -266,19 +266,13 @@ export class AirzoneCloudPlatformAccessory {
 
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}] and ` +
-      `Power from ${this.device.status.power} to ${power}`);
+      `Power from ${Power[this.device.status.power?1:0]}[${Boolean(this.device.status.power)}] to ${Power[power?1:0]}[${Boolean(power)}]`);
 
-    // save locally
-    if (this.device.status.mode_available.includes(mode)) {
-      this.device.status.mode = mode;
-    }
-    this.device.status.power = power;
-
-    // save remotely
     if (this.device.status.mode_available.includes(mode)) {
       this.platform.airzoneCloudApi.setDeviceMode(this.device.installationId, this.device.id, mode);
-    } else { // If the device does not have this mode it is not changed
-      this.platform.log.warn(`${this.device.name}: mode ${DeviceMode[mode]}[${mode}] not supported`);
+    } else {
+      // the device does not have this mode it is changed through group
+      this.platform.airzoneCloudApi.setGroupMode(this.device.installationId, this.device.groupId, mode);
     }
     this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power);
 
@@ -290,26 +284,6 @@ export class AirzoneCloudPlatformAccessory {
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     const targetTemperature = value as number;
 
-    // transform
-    const temperature = (function(value: number, units: Units) {
-      switch(units) {
-        case Units.CELSIUS:
-          return {
-            celsius: value,
-            fah: Math.round(((value * 9 / 5) + 32) * 10) / 10,
-          };
-        case Units.FARENHEIT:
-          return {
-            celsius: Math.round(((value - 32) * 5 / 9) * 10) / 10,
-            fah: value,
-          };
-      }
-    })(targetTemperature, this.device.status.units);
-
-    // save locally
-    this.device.status[this.getTargetTempertureName()] = temperature;
-
-    // save remotely
     this.platform.airzoneCloudApi.setTemperature(
       this.device.installationId, this.device.id, this.device.status.mode, targetTemperature, this.device.status.units,
     );
@@ -321,14 +295,8 @@ export class AirzoneCloudPlatformAccessory {
   async setTemperatureDisplayUnits(value: CharacteristicValue) {
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
     const temperatureDisplayUnits = value as TemperatureDisplayUnits;
-
-    // transform
     const units = temperatureDisplayUnits as number as Units;
 
-    // save locally
-    this.device.status.units = units;
-
-    // save remotely
     this.platform.airzoneCloudApi.setUnits(units);
 
     this.platform.log.info(`${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +

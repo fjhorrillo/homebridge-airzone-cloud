@@ -6,6 +6,11 @@ export enum Units {
   FARENHEIT = 1
 }
 
+export enum Power {
+  OFF = 0,
+  ON = 1
+}
+
 export enum DeviceMode {
   STOP = 0,
   AUTO = 1,

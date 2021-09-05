@@ -173,13 +173,13 @@ export class AirzoneCloudApi {
       headers: headers,
       body: json,
     };
-    this.platform.log.debug(`Request: ${options.method} ${options.url}` +
-      `${json?` body=${JSON.stringify(JSON.parse(options.body), this.obfusked)}`:''}`);
+    this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
+      `${json?` body=${JSON.stringify(JSON.parse(options.body), this.obfusked)}`:''}\x1b[0m`);
     const response = await fetch(options.url, options);
     if (response && response.ok) {
       if (response.status !== 204) {
         const data = await response.json();
-        this.platform.log.debug(`Response: ${JSON.stringify(data)}`);
+        this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)}\x1b[0m`);
         return data;
       }
     } else if (response.status === 401 && this._refreshToken) {
@@ -196,7 +196,8 @@ export class AirzoneCloudApi {
     } else {
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
         `${response.status === 400?` Response: ${JSON.stringify(await response.json())}`:''}`);
-      this.platform.log.debug(`Response: ${JSON.stringify(response)} for Request: ${JSON.stringify(options, this.obfusked)}`);
+      this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m Response: ${JSON.stringify(response)} for ` +
+        `\x1b[34m⬆\x1b[0m Request: ${JSON.stringify(options, this.obfusked)}\x1b[0m`);
       throw new Error(`Status: ${response.status} ${response.statusText}`);
     }
   }
@@ -383,6 +384,21 @@ export class AirzoneCloudApi {
     } catch (error) {
       this.platform.log.error(`Error in setDeviceMode ${error}`);
       throw new Error('Error in setDeviceMode');
+    }
+  }
+
+  public async setGroupMode(installationId: string, groupId: string, mode: DeviceMode) {
+    const payload = {
+      'params': {
+        'mode': mode.valueOf(),
+      },
+    };
+
+    try {
+      return await this._put(`${API_INSTALLATIONS}/${installationId}/group/${groupId}`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setGroupMode ${error}`);
+      throw new Error('Error in setGroupMode');
     }
   }
 
