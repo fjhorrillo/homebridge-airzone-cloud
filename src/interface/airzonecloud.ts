@@ -118,7 +118,7 @@ export interface DeviceMeta {
 }
 
 export interface DeviceStatus {
-  power: boolean;
+  power: Power;
   humidity: number;
   local_temp: Temperature;
   setpoint_air_stop: Temperature;

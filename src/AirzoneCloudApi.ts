@@ -174,7 +174,7 @@ export class AirzoneCloudApi {
       body: json,
     };
     this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
-      `${json?` body=${JSON.stringify(JSON.parse(options.body), this.obfusked)}`:''}\x1b[0m`);
+      `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
     const response = await fetch(options.url, options);
     if (response && response.ok) {
       if (response.status !== 204) {
@@ -197,13 +197,13 @@ export class AirzoneCloudApi {
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
         `${response.status === 400?` Response: ${JSON.stringify(await response.json())}`:''}`);
       this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m Response: ${JSON.stringify(response)} for ` +
-        `\x1b[34m⬆\x1b[0m Request: ${JSON.stringify(options, this.obfusked)}\x1b[0m`);
+        `\x1b[34m⬆\x1b[0m Request: ${JSON.stringify(options, this._obfusked)}\x1b[0m`);
       throw new Error(`Status: ${response.status} ${response.statusText}`);
     }
   }
 
   /* Allow obfusk sensitive data */
-  private obfusked(key, value): string {
+  private _obfusked(key, value): string {
     if (key === 'password' && typeof value === 'string') {
       return value.replace(/./g, '*');
     }
