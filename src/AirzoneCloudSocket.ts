@@ -45,8 +45,8 @@ export class AirzoneCloudSocket {
 
   /* Starting to listen to the events of an installation */
   public async listenInstallation(installationId: string): Promise<{[key: string]: unknown}> {
-    this.listeningInstallationId = installationId;
     await this.clearListeners();
+    this.listeningInstallationId = installationId;
     return new Promise ((resolve, reject) => {
       this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_installation", "${installationId}"]\x1b[0m`);
       this.userSocket.emit('listen_installation', installationId, async data => {
@@ -86,8 +86,8 @@ export class AirzoneCloudSocket {
 
   /* Starting to listen to the events of a webserver */
   public async listenWebserver(webserverId: string) {
-    this.listeningWebserverId = webserverId;
     await this.clearListeners();
+    this.listeningWebserverId = webserverId;
     return new Promise ((resolve, reject) => {
       this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_ws", "${webserverId}"]\x1b[0m`);
       this.userSocket.emit('listen_ws', webserverId, async data => {
@@ -122,7 +122,7 @@ export class AirzoneCloudSocket {
   }
 
   /* Stop listening for events from an installation (free socket traffic) */
-  public async clearListeners() {
+  public async clearListeners(refresh = false) {
     return new Promise ((resolve, reject) => {
       this.platform.log.debug('\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["clear_listeners"]\x1b[0m');
       this.userSocket.emit('clear_listeners', data => {
@@ -130,8 +130,11 @@ export class AirzoneCloudSocket {
           this.platform.log.error(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
           return reject(new Error(`Error sending 'clear_listeners' message. ${JSON.stringify(data)}`));
         } else {
-          this.listeningInstallationId = undefined;
-          this.listeningWebserverId = undefined;
+          if (!refresh) {
+            this.platform.log.debug('Cleaned cached installationId and webserverId');
+            this.listeningInstallationId = undefined;
+            this.listeningWebserverId = undefined;
+          }
           this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
         }
         return resolve(true);
@@ -184,7 +187,6 @@ export class AirzoneCloudSocket {
 
         };
         const receivedData = args[0];
-        //const dataToUpdate = {};
 
         switch(event.name) {
           case 'USERS':
@@ -231,28 +233,27 @@ export class AirzoneCloudSocket {
         }
       });
 
-      this.userSocket.io.on('error', async error => {
+      this.userSocket.on('error', async error => {
+        this.platform.log.error(`Socket connect error ${JSON.stringify(error)}`);
         if(error['description'] === 401) {
           this.platform.log.error('Error 401 socketservice');
           try {
             this._updateToken(await this.platform.airzoneCloudApi.refreshToken());
           } catch (error) {
             this.disconnectSocket();
-            this.platform.log.error(`Socket connect error ${error}`);
-            reject(new Error('socketConnectError'));
+            reject(new Error(`socketConnectError ${error}`));
           }
         } else {
           this.platform.log.error('Disconnect due to red disconnection');
           if(error['type'] === 'TransportError') {
-            this.platform.log.debug('Disconnect por transportError');
-          } else {
-            this.disconnectSocket();
-            reject(new Error('socketConnectError'));
+            this.platform.log.debug('Disconnect for transportError');
           }
+          this.disconnectSocket();
+          reject(new Error('socketConnectError'));
         }
       });
 
-      this.userSocket.io.on('reconnect', async attempt => {
+      this.userSocket.on('reconnect', async attempt => {
         this.platform.log.info(`Reconected after ${attempt} attempt(s)`);
         this.refreshListeners();
       });
@@ -269,14 +270,14 @@ export class AirzoneCloudSocket {
 
   /* Disconnect from user socket */
   public disconnectSocket() {
-    this.platform.log.info('Disconnect socket lanzado', this.userSocket);
+    this.platform.log.info('Disconnect socket requested', this.userSocket);
     this.userSocket.close();
   }
 
   /* Retrieves the information of all Devices of an updated installation */
   async refreshListeners() {
     // Clear listeners
-    await this.clearListeners();
+    await this.clearListeners(true);
 
     if (this.listeningInstallationId) {
       this.platform.log.debug(`Refresh listener for installation ${this.listeningInstallationId}`);
