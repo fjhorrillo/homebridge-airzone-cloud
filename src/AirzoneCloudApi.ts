@@ -425,4 +425,8 @@ export class AirzoneCloudApi {
     return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
   }
 
+  public allOtherOff(deviceId: string): boolean {
+    return this._airzoneCloudSocket.allOtherOff(deviceId);
+  }
+
 }

@@ -213,6 +213,7 @@ export class AirzoneCloudSocket {
 
       this.userSocket.on('connect', async () => {
         this.platform.log.info('Websocket connected');
+        await this.refreshListeners();
         resolve(true);
       });
 
@@ -318,6 +319,16 @@ export class AirzoneCloudSocket {
     } else {
       this.platform.log.warn(`[${eventName}] Event not implemented. ${JSON.stringify(event)}`);
     }
+  }
+
+  public allOtherOff(deviceId: string): boolean {
+    let allOtherOff = true;
+    Object.keys(this.listenInstallationDevices).forEach(device_id => {
+      if (deviceId !== device_id) {
+        allOtherOff &&= !this.listenInstallationDevices[device_id].power;
+      }
+    });
+    return allOtherOff;
   }
 
 }

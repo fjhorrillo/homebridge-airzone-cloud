@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
 import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger } from './platform';
-import { DeviceMode, Power, Units } from './interface/airzonecloud';
+import { DeviceMode, Units } from './interface/airzonecloud';
 
 /**
  * Internal types
@@ -223,9 +223,6 @@ export class AirzoneCloudPlatformAccessory {
 
   async getTemperatureDisplayUnits(): Promise<CharacteristicValue> {
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
-    this.device.status.units = (await this.platform.airzoneCloudApi.getUser()).config.units;
-
-    // Parse from Units to TemperatureDisplayUnits
     const temperatureDisplayUnits = this.device.status.units as number as TemperatureDisplayUnits;
 
     this.platform.log.debug(`${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
@@ -264,17 +261,21 @@ export class AirzoneCloudPlatformAccessory {
     })(targetHeatingCoolingState);
     const power = mode !== DeviceMode.STOP;
 
-    this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
-      `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}] and ` +
-      `Power from ${Power[this.device.status.power?1:0]}[${Boolean(this.device.status.power)}] to ${Power[power?1:0]}[${Boolean(power)}]`);
+    this.platform.log.debug(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
+      `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
+      `Power from ${this.device.status.power?'ON':'OFF'}[${this.device.status.power}] to ${power?'ON':'OFF'}[${power}] and ` +
+      `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}]`);
 
-    if (this.device.status.mode_available.includes(mode)) {
-      this.platform.airzoneCloudApi.setDeviceMode(this.device.installationId, this.device.id, mode);
-    } else {
-      // the device does not have this mode it is changed through group
-      this.platform.airzoneCloudApi.setGroupMode(this.device.installationId, this.device.groupId, mode);
+    // Switch mode to stop only if all zones are off
+    if (mode !== this.device.status.mode) { // only if mode is changed
+      if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP && this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
+        // mode is changed through group
+        this.platform.airzoneCloudApi.setGroupMode(this.device.installationId, this.device.groupId, mode);
+      }
     }
-    this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power);
+    if (power !== this.device.status.power) { // only if power is changed
+      this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power);
+    }
 
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}]`);

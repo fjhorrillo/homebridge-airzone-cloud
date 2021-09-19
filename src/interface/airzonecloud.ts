@@ -6,11 +6,6 @@ export enum Units {
   FARENHEIT = 1
 }
 
-export enum Power {
-  OFF = 0,
-  ON = 1
-}
-
 export enum DeviceMode {
   STOP = 0,
   AUTO = 1,
@@ -118,7 +113,7 @@ export interface DeviceMeta {
 }
 
 export interface DeviceStatus {
-  power: Power;
+  power: boolean;
   humidity: number;
   local_temp: Temperature;
   setpoint_air_stop: Temperature;
