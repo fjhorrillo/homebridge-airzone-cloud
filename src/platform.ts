@@ -2,8 +2,12 @@ import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, 
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { AirzoneCloudPlatformAccessory } from './platformAccessory';
+import { AirzoneCloudPlatformAccessoryAirzone } from './platformAccessoryAirzone';
+import { AirzoneCloudPlatformAccessoryDaikin } from './platformAccessoryDaikin';
 
 import { AirzoneCloudPlatformConfig } from './interface/config';
+import { AirzoneCloud, Zone } from './AirzoneCloud';
+import { AirzoneCloudDaikin, Device } from './AirzoneCloudDaikin';
 import { AirzoneCloudApi } from './AirzoneCloudApi';
 import { DeviceStatus } from './interface/airzonecloud';
 
@@ -32,6 +36,8 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly accessories: PlatformAccessory[] = [];
 
   public readonly log!: DebugLogger;
+  public airzoneCloud!: AirzoneCloud;
+  public airzoneCloudDaikin!: AirzoneCloudDaikin;
   public airzoneCloudApi!: AirzoneCloudApi;
 
   constructor(
@@ -75,7 +81,15 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     this.api.on('didFinishLaunching', () => {
       this.log.debug('Executed didFinishLaunching callback');
       // run the method to discover / register your devices as accessories
-      this.discoverDevices();
+      if (!AirzoneCloudPlatformConfig.isDaikin(this)) {
+        if (!AirzoneCloudPlatformConfig.isOldAirzone(this)) {
+          this.discoverDevices();
+        } else {
+          this.discoverAirzoneDevices();
+        }
+      } else {
+        this.discoverDaikinDevices();
+      }
     });
   }
 
@@ -147,7 +161,89 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     }
   }
 
-  registerDevice(device: DeviceType) {
+  async discoverAirzoneDevices() {
+    /**
+     * Airzone Cloud API implementation.
+     *
+     * AirzoneCloud : represent your AirzoneCloud account. Contains a list of your devices :
+     *   Device : represent one of your Airzone webserver registered. Contains a list of its systems :
+     *     System : represent your climate equipment (Mitsubishi, Daikin, ...). Contains a list of its zones :
+     *       Zone : represent a zone to control
+     */
+    // Initialice Airzone Cloud connection
+    this.log.info('Initialice conection to Airzone Cloud');
+    this.airzoneCloud = await AirzoneCloud.createAirzoneCloud(
+      this,
+      (this.config as AirzoneCloudPlatformConfig).login.email,
+      (this.config as AirzoneCloudPlatformConfig).login.password,
+      (this.config as AirzoneCloudPlatformConfig).user_agent,
+      (this.config as AirzoneCloudPlatformConfig).custom_base_url ?
+        (this.config as AirzoneCloudPlatformConfig).custom_base_url : (this.config as AirzoneCloudPlatformConfig).system,
+    );
+
+    // loop over the discovered devices and register each one if it has not already been registered
+    for (const system of this.airzoneCloud.all_systems) {
+      for (const zone of system.zones) {
+        this.registerDevice({
+          id:zone.id,
+          groupId: zone.system.id,
+          installationId: zone.system.device.id,
+          name: zone.name,
+          serialNumber: zone.system.device.mac,
+          model: zone.class,
+          firmwareRevision: zone.system.firmware_system,
+          status: {
+            // Only for type compatibility
+            // eslint-disable-next-line max-len
+            power: false, humidity: 0, local_temp: {celsius: 0, fah: 0}, setpoint_air_stop: {celsius: 0, fah: 0}, setpoint_air_auto: {celsius: 0, fah: 0}, setpoint_air_cool: {celsius: 0, fah: 0}, setpoint_air_heat: {celsius: 0, fah: 0}, setpoint_air_vent: {celsius: 0, fah: 0}, setpoint_air_dry: {celsius: 0, fah: 0}, step: {celsius: 0, fah: 0}, mode: 0, mode_available: [],
+            units: 0, // 0:CELSIUS, 1:FAHRENHEIT
+          },
+        }, zone);
+      }
+    }
+  }
+
+  /* Discovered accessories from Daikin Airzone Cloud. */
+  async discoverDaikinDevices() {
+    /**
+     * Daikin Airzone Cloud API implementation.
+     *
+     * AirzoneCloudDaikin : represent your Daikin AirzoneCloud account. Contains a list of your installations :
+     *   Installation: represent one of your installation (like your home, an office, ...). Contains a list of its devices :
+     *     Device : represent your climate equipement to control
+     */
+    // Initialice Dikin Airzone Cloud connection
+    this.log.info('Initialice conection to Daikin Airzone Cloud');
+    this.airzoneCloudDaikin = await AirzoneCloudDaikin.createAirzoneCloudDaikin(
+      this,
+      (this.config as AirzoneCloudPlatformConfig).login.email,
+      (this.config as AirzoneCloudPlatformConfig).login.password,
+      (this.config as AirzoneCloudPlatformConfig).user_agent,
+      (this.config as AirzoneCloudPlatformConfig).custom_base_url ?
+        (this.config as AirzoneCloudPlatformConfig).custom_base_url : (this.config as AirzoneCloudPlatformConfig).system,
+    );
+
+    // loop over the discovered devices and register each one if it has not already been registered
+    for (const device of this.airzoneCloudDaikin.all_devices) {
+      this.registerDevice({
+        id:device.id,
+        groupId: device.installation.id,
+        installationId: device.installation.id,
+        name: device.name,
+        serialNumber: device.mac,
+        model: device.brand,
+        firmwareRevision: device.firmware,
+        status: {
+          // Only for type compatibility
+          // eslint-disable-next-line max-len
+          power: false, humidity: 0, local_temp: {celsius: 0, fah: 0}, setpoint_air_stop: {celsius: 0, fah: 0}, setpoint_air_auto: {celsius: 0, fah: 0}, setpoint_air_cool: {celsius: 0, fah: 0}, setpoint_air_heat: {celsius: 0, fah: 0}, setpoint_air_vent: {celsius: 0, fah: 0}, setpoint_air_dry: {celsius: 0, fah: 0}, step: {celsius: 0, fah: 0}, mode: 0, mode_available: [],
+          units: 0, // 0:CELSIUS, 1:FAHRENHEIT
+        },
+      }, device);
+    }
+  }
+
+  registerDevice(device: DeviceType, zone?: Zone | Device) {
     // generate a unique id for the accessory this should be generated from
     // something globally unique, but constant, for example, the device serial
     // number or MAC address
@@ -168,7 +264,15 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
 
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new AirzoneCloudPlatformAccessory(this, existingAccessory);
+        if (zone) {
+          if ((zone as Zone).class === 'Zone') {
+            new AirzoneCloudPlatformAccessoryAirzone(this, existingAccessory, zone as Zone);
+          } else {
+            new AirzoneCloudPlatformAccessoryDaikin(this, existingAccessory, zone as Device);
+          }
+        } else {
+          new AirzoneCloudPlatformAccessory(this, existingAccessory);
+        }
 
         // update accessory cache with any changes to the accessory details and information
         this.api.updatePlatformAccessories([existingAccessory]);
@@ -190,7 +294,15 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
 
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
-      new AirzoneCloudPlatformAccessory(this, accessory);
+      if (zone) {
+        if ((zone as Zone).class === 'Zone') {
+          new AirzoneCloudPlatformAccessoryAirzone(this, accessory, zone as Zone);
+        } else {
+          new AirzoneCloudPlatformAccessoryDaikin(this, accessory, zone as Device);
+        }
+      } else {
+        new AirzoneCloudPlatformAccessory(this, accessory);
+      }
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);

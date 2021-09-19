@@ -63,8 +63,14 @@ export class AirzoneCloudPlatformConfig implements PlatformConfig {
 
   public static isDaikin(platform: AirzoneCloudHomebridgePlatform): boolean {
     const cast = platform.config as AirzoneCloudPlatformConfig;
-    return Boolean(cast.system.match(/dkn/g));
+    return Boolean(cast.system.match(/dkn\./g));
   }
+
+  public static isOldAirzone(platform: AirzoneCloudHomebridgePlatform): boolean {
+    const cast = platform.config as AirzoneCloudPlatformConfig;
+    return Boolean(cast.system.match(/www\./g));
+  }
+
 }
 
 class User {
@@ -78,4 +84,5 @@ class User {
 
     return validEmail && validPassword;
   }
+
 }

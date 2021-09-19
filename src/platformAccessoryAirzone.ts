@@ -1,5 +1,5 @@
 import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallback, CharacteristicGetCallback } from 'homebridge';
-import { Device } from './AirzoneCloudDaikin';
+import { Zone } from './AirzoneCloud';
 
 import { AirzoneCloudHomebridgePlatform } from './platform';
 
@@ -8,14 +8,14 @@ import { AirzoneCloudHomebridgePlatform } from './platform';
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class AirzoneCloudPlatformAccessoryDaikin {
+export class AirzoneCloudPlatformAccessoryAirzone {
   private service: Service;
   private displayUnits: number; // 0:CELSIUS, 1:FAHRENHEIT
 
   constructor(
     private readonly platform: AirzoneCloudHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
-    private readonly device: Device,
+    private readonly zone: Zone,
   ) {
 
     // set accessory information
@@ -60,6 +60,12 @@ export class AirzoneCloudPlatformAccessoryDaikin {
     this.service.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
       .on('set', this.setTemperatureDisplayUnits.bind(this))       // SET - bind to the `setTemperatureDisplayUnits` method below
       .on('get', this.getTemperatureDisplayUnits.bind(this));      // GET - bind to the `getTemperatureDisplayUnits` method below
+
+    // register handlers for the TemperatureDisplayUnits CurrentRelativeHumidity
+    if (this.zone.current_humidity) {
+      this.service.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
+        .on('get', this.getCurrentRelativeHumidity.bind(this));      // GET - bind to the `getCurrentRelativeHumidity` method below
+    }
 
     /**
      * Creating multiple services of the same type.
@@ -117,8 +123,8 @@ export class AirzoneCloudPlatformAccessoryDaikin {
    */
   async getCurrentHeatingCoolingState(callback: CharacteristicGetCallback) {
     // Refres data from Airzone Cloud
-    await this.device.refresh();
-    const system = this.device;
+    await this.zone.refresh();
+    const system = this.zone.system;
 
     // CurrentHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL
     let currentHeatingCoolingState = 0;
@@ -137,7 +143,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
         break;
     }
 
-    this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
       `${currentHeatingCoolingState} ([${system.mode_raw}]${system.mode}: ${system.mode_description})`);
 
     // you must call the callback function
@@ -152,35 +158,49 @@ export class AirzoneCloudPlatformAccessoryDaikin {
    */
   async setTargetHeatingCoolingState(value: CharacteristicValue, callback: CharacteristicSetCallback) {
     // Refres data from Airzone Cloud
-    await this.device.refresh();
-    const system = this.device;
+    await this.zone.refresh();
+    const system = this.zone.system;
+    let allOtherOff: boolean;
 
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
-    let targetHeatingCoolingState = 'none';
+    let targetHeatingCoolingState = 'stop';
     switch (value) {
       case 0: // STOP
-        targetHeatingCoolingState = 'none';
-        await this.device.turn_off();
+        // Switch mode to stop only if all zones are off
+        allOtherOff = true;
+        for (const zone of system.zones) {
+          if (zone.id !== this.zone.id) {
+            allOtherOff &&= !zone.is_on;
+          }
+        }
+        targetHeatingCoolingState = allOtherOff ? 'stop' : system.mode;
+        await this.zone.turn_off();
         break;
       case 1: // HEAT
-        targetHeatingCoolingState = 'heat';
-        await this.device.turn_on();
+        targetHeatingCoolingState = 'heat-both';
+        await this.zone.turn_on();
         break;
       case 2: // COOL
-        targetHeatingCoolingState = 'cool';
-        await this.device.turn_on();
+        targetHeatingCoolingState = 'cool-air';
+        await this.zone.turn_on();
         break;
       case 3: // AUTO
-        targetHeatingCoolingState = 'heat-cold-auto';
-        await this.device.turn_on();
+        targetHeatingCoolingState = system.mode;
+        if (this.zone.current_temperature! < this.zone.target_temperature!) { // If themperture is lower
+          targetHeatingCoolingState = 'heat-both';
+          await this.zone.turn_on();
+        } else if (this.zone.current_temperature! > this.zone.target_temperature!) { // If temperture is higher
+          targetHeatingCoolingState = 'cool-air';
+          await this.zone.turn_on();
+        }
         break;
       default:
         this.platform.log.error(`Unknown state [${system.mode_raw}]${system.mode}: ${system.mode_description}`);
         break;
     }
-    await this.device.set_mode(targetHeatingCoolingState);
+    await this.zone.system.set_mode(targetHeatingCoolingState);
 
-    this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ${targetHeatingCoolingState}`);
+    this.platform.log.info(`${this.zone.name}: Set Characteristic TargetHeatingCoolingState -> ${targetHeatingCoolingState}`);
 
     // you must call the callback function
     callback(null);
@@ -188,11 +208,11 @@ export class AirzoneCloudPlatformAccessoryDaikin {
 
   async getTargetHeatingCoolingState(callback: CharacteristicGetCallback) {
     // Refres data from Airzone Cloud
-    await this.device.refresh();
+    await this.zone.refresh();
 
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     let targetHeatingCoolingState = 0;
-    switch (this.device.heat_cold_mode) {
+    switch (this.zone.system.heat_cold_mode) {
       case 'none':
         targetHeatingCoolingState = 0;
         break;
@@ -203,15 +223,15 @@ export class AirzoneCloudPlatformAccessoryDaikin {
         targetHeatingCoolingState = 1;
         break;
       default:
-        this.platform.log.error(`Unknown state [${this.device.mode_raw}]${this.device.mode}: ${this.device.mode_description}`);
+        this.platform.log.error(`Unknown state [${this.zone.mode_raw}]${this.zone.mode}: ${this.zone.mode_description}`);
         break;
     }
-    if (!this.device.is_on) {
+    if (!this.zone.is_on) {
       targetHeatingCoolingState = 0;
     }
 
-    this.platform.log.debug(`${this.device.name}: Get Characteristic TargetHeatingCoolingState -> ` +
-      `${targetHeatingCoolingState} ([${this.device.mode_raw}]${this.device.mode}: ${this.device.mode_description})`);
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic TargetHeatingCoolingState -> ` +
+      `${targetHeatingCoolingState} ([${this.zone.mode_raw}]${this.zone.mode}: ${this.zone.mode_description})`);
 
     // you must call the callback function
     // the first argument should be null if there were no errors
@@ -221,12 +241,12 @@ export class AirzoneCloudPlatformAccessoryDaikin {
 
   async getCurrentTemperature(callback: CharacteristicGetCallback) {
     // Refres data from Airzone Cloud
-    await this.device.refresh();
+    await this.zone.refresh();
 
     // CurrentTemperature => Min Value 0, Max Value 100, Min Step 0.1
-    const currentTemperature = this.displayUnits ? this.toFahrenheit(this.device.current_temperature!) : this.device.current_temperature;
+    const currentTemperature = this.displayUnits ? this.toFahrenheit(this.zone.current_temperature!) : this.zone.current_temperature;
 
-    this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic CurrentTemperature -> ` +
       `${currentTemperature}º${this.displayUnits?'F':'C'}`);
 
     // you must call the callback function
@@ -241,16 +261,16 @@ export class AirzoneCloudPlatformAccessoryDaikin {
    */
   async setTargetTemperature(value: CharacteristicValue, callback: CharacteristicSetCallback) {
     // Refres data from Airzone Cloud
-    await this.device.refresh();
+    await this.zone.refresh();
 
     // Convert to Celsius if it is Fahrenheit
     if (this.displayUnits) {
       value = this.toCelsius(value as number);
     }
     // Min Value 10, Max Value 38, Min Step 0.1
-    await this.device.set_temperature(value);
+    await this.zone.set_temperature(value);
 
-    this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ${value}º${this.displayUnits?'F':'C'}`);
+    this.platform.log.info(`${this.zone.name}: Set Characteristic TargetTemperature -> ${value}º${this.displayUnits?'F':'C'}`);
 
     // you must call the callback function
     callback(null);
@@ -258,13 +278,12 @@ export class AirzoneCloudPlatformAccessoryDaikin {
 
   async getTargetTemperature(callback: CharacteristicGetCallback) {
     // Refres data from Airzone Cloud
-    await this.device.refresh();
+    await this.zone.refresh();
 
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
-    const targetTemperature = this.displayUnits ? this.toFahrenheit(this.device.target_temperature!) : this.device.target_temperature;
+    const targetTemperature = this.displayUnits ? this.toFahrenheit(this.zone.target_temperature!) : this.zone.target_temperature;
 
-    this.platform.log.debug(`${this.device.name}: Get Characteristic TargetTemperature -> ` +
-      `${targetTemperature}º${this.displayUnits?'F':'C'}`);
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic TargetTemperature -> ${targetTemperature}º${this.displayUnits?'F':'C'}`);
 
     // you must call the callback function
     // the first argument should be null if there were no errors
@@ -277,7 +296,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
     // implement your own code to set the TemperatureDisplayUnits
     this.displayUnits = value as number;
 
-    this.platform.log.info(`${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ${value} (º${this.displayUnits?'F':'C'})`);
+    this.platform.log.info(`${this.zone.name}: Set Characteristic TemperatureDisplayUnits -> ${value} (º${this.displayUnits?'F':'C'})`);
 
     // you must call the callback function
     callback(null);
@@ -286,7 +305,7 @@ export class AirzoneCloudPlatformAccessoryDaikin {
   getTemperatureDisplayUnits(callback: CharacteristicGetCallback) {
     const temperatureDisplayUnits = this.displayUnits;
 
-    this.platform.log.debug(`${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic TemperatureDisplayUnits -> ` +
       `${temperatureDisplayUnits} (º${this.displayUnits?'F':'C'})`);
 
     // you must call the callback function
@@ -305,5 +324,20 @@ export class AirzoneCloudPlatformAccessoryDaikin {
     // Convert from Fahrenheit to Celsius
     const celsius = (temperature - 32) * 5 / 9;
     return Math.round(celsius * 10) / 10;
+  }
+
+  async getCurrentRelativeHumidity(callback: CharacteristicGetCallback) {
+    // Refres data from Airzone Cloud
+    await this.zone.refresh();
+
+    // CurrentRelativeHumidity => Min Value 0, Max Value 100, Min Step 1
+    const currentRelativeHumidity = this.zone.current_humidity;
+
+    this.platform.log.debug(`${this.zone.name}: Get Characteristic CurrentRelativeHumidity -> ${currentRelativeHumidity}`);
+
+    // you must call the callback function
+    // the first argument should be null if there were no errors
+    // the second argument should be the value to return
+    callback(null, currentRelativeHumidity);
   }
 }
