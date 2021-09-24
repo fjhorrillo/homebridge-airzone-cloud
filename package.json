@@ -26,7 +26,8 @@
   "keywords": [
     "homebridge-plugin",
     "homekit",
-    "airzone"
+    "airzone",
+    "DKN"
   ],
   "dependencies": {
     "node-fetch": "^2.6.1",

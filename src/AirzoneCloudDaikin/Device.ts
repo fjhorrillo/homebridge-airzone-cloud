@@ -224,14 +224,17 @@ export class Device {
     if (this.max_temperature && temperature > this.max_temperature!) {
       temperature = this.max_temperature;
     }
+    // Round temperatura
+    temperature = String(temperature.toFixed(1));
+
     this.platform.log.trace(`call set_temperature(${temperature}) on ${this.str_complete()} ` +
       `(min: ${this.min_temperature} & max: ${this.max_temperature})`);
     if (this.heat_cold_mode === 'heat') {
-      await this._send_event('P8', temperature.toFixed(1));
-      this._data['heat_consign'] = String(temperature.toFixed(1));
+      await this._send_event('P8', temperature);
+      this._data['heat_consign'] = temperature;
     } else {
       await this._send_event('P7', temperature);
-      this._data['cold_consign'] = String(temperature.toFixed(1));
+      this._data['cold_consign'] = temperature;
     }
   }
 
@@ -270,7 +273,7 @@ export class Device {
    */
 
   /* Send an event for current device */
-  private async _send_event(option, value: number) {
+  private async _send_event(option, value: number|string) {
     const payload = {
       'event': {
         'cgi': 'modmaquina',
