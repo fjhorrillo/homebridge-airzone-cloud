@@ -1,5 +1,6 @@
 /**
  * There are the name of the enpoints for Airzone Cloud API.
+ * Web API documentation: https://developers.airzonecloud.com/docs/web-api
  */
 export const API_LOGIN = '/api/v1/auth/login';
 export const API_REFRESH_TOKEN = '/api/v1/auth/refreshToken';

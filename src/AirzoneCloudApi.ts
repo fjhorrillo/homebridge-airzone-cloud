@@ -9,7 +9,8 @@ import { AirzoneCloudSocket } from './AirzoneCloudSocket';
 
 import { API_LOGIN, API_REFRESH_TOKEN, API_INSTALLATIONS, API_DEVICES, API_USER } from './constants';
 import { URL, URLSearchParams } from 'url';
-import { Installation, Webserver, Units, DeviceConfig, User, LogedUser, DeviceMode, SetpointAir } from './interface/airzonecloud';
+import { Installation, Webserver, Units, User, LogedUser, SetpointAir } from './interface/airzonecloud';
+import { DeviceConfig, DeviceMode, DeviceStatus } from './interface/airzonecloud';
 
 enum HTTPMethod {
   POST = 'POST',
@@ -319,7 +320,7 @@ export class AirzoneCloudApi {
    * @param {string} type - Typo de configuración. Puede ser 'all', 'user' o 'advanced'. Por defecto es 'user'
    * @return {DeviceConfig} - configuracion del dispositivo
    */
-  async getDeviceConfig(deviceId: string, installationId: string, userUnits: Units, type = 'advanced'): Promise<DeviceConfig> {
+  async getDeviceConfig(deviceId: string, installationId: string, type = 'advanced'): Promise<DeviceConfig> {
     const params = {
       'installation_id': installationId,
     };
@@ -332,6 +333,26 @@ export class AirzoneCloudApi {
     } catch (error) {
       this.platform.log.error(`Error in getDeviceConfig ${error}`);
       throw new Error('Error in getDeviceConfig');
+    }
+  }
+
+  /**
+   * Gets the status of a device
+   *
+   * @param {string} deviceId - ID del dispositivo
+   * @param {string} installationId - ID de la instalación a la que pertenece
+   * @return {DeviceStatus} - status del dispositivo
+   */
+  async getDeviceStatus(deviceId: string, installationId: string): Promise<DeviceStatus> {
+    const params = {
+      'installation_id': installationId,
+    };
+
+    try {
+      return await this._get(`${API_DEVICES}/${deviceId}/status`, params);
+    } catch (error) {
+      this.platform.log.error(`Error in getDeviceStatus ${error}`);
+      throw new Error('Error in getDeviceStatus');
     }
   }
 
