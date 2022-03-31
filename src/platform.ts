@@ -141,8 +141,8 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       for (const group of installation.groups || []) {
         this.log.debug(`Group: ${group.name}<${group.group_id}>`);
         for (const device of group.devices || []) {
-          if (device.type === 'az_zone') {
-            this.log.debug(`Device: ${device.name}<${device.device_id}>`);
+          if (device.type === 'az_zone' || device.type === 'aidoo') {
+            this.log.debug(`AirZone Device: ${device.name}<${device.device_id}>`);
             const webserverStatus = webservers[device.ws_id] ||
               await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, device.ws_id);
             this.registerDevice({
@@ -156,6 +156,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
               status: device.status,
             });
           }
+
         }
       }
     }
