@@ -119,7 +119,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
      */
     // Initialice Airzone Cloud connection
     this.log.info('Initialice conection to Airzone Cloud');
-    this.airzoneCloudApi = await AirzoneCloudApi.createAirzoneCloudApi(
+    const airzoneCloudApi = await AirzoneCloudApi.createAirzoneCloudApi(
       this,
       (this.config as AirzoneCloudPlatformConfig).login.email,
       (this.config as AirzoneCloudPlatformConfig).login.password,
@@ -128,35 +128,38 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
         (this.config as AirzoneCloudPlatformConfig).custom_base_url : (this.config as AirzoneCloudPlatformConfig).system,
     );
 
-    // loop over the discovered devices and register each one if it has not already been registered
-    for (let installation of await this.airzoneCloudApi.getInstallations()) {
-      this.log.debug(`Installation: ${installation.name}<${installation.installation_id}>`);
-      // get all webservers
-      const webservers = {};
-      for (const ws_id of installation.ws_ids || []) {
-        webservers[ws_id] = await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, ws_id);
-      }
-      // get installation detail
-      installation = await this.airzoneCloudApi.getInstallation(installation.installation_id);
-      for (const group of installation.groups || []) {
-        this.log.debug(`Group: ${group.name}<${group.group_id}>`);
-        for (const device of group.devices || []) {
-          if (device.type === 'az_zone' || device.type === 'aidoo') {
-            this.log.debug(`AirZone Device: ${device.name}<${device.device_id}>`);
-            const webserverStatus = webservers[device.ws_id] ||
-              await this.airzoneCloudApi.getWebserverStatus(installation.installation_id, device.ws_id);
-            this.registerDevice({
-              id: device.device_id,
-              groupId: group.group_id,
-              installationId: installation.installation_id,
-              name: device.name,
-              serialNumber: device.ws_id,
-              model: device.type,
-              firmwareRevision: webserverStatus.config.ws_fw,
-              status: device.status,
-            });
-          }
+    if (airzoneCloudApi) {
+      this.airzoneCloudApi = airzoneCloudApi;
+      // loop over the discovered devices and register each one if it has not already been registered
+      for (const installationId of await this.airzoneCloudApi.getInstallations() || []) {
+        this.log.debug(`Installation: ${installationId.name}<${installationId.installation_id}>`);
+        // get all webservers
+        const webservers = {};
+        for (const ws_id of installationId.ws_ids || []) {
+          webservers[ws_id] = await this.airzoneCloudApi.getWebserverStatus(installationId.installation_id, ws_id);
+        }
+        // get installation detail
+        const installation = await this.airzoneCloudApi.getInstallation(installationId.installation_id);
+        for (const group of installation!.groups || []) {
+          this.log.debug(`Group: ${group.name}<${group.group_id}>`);
+          for (const device of group.devices || []) {
+            if (device.type === 'az_zone' || device.type === 'aidoo') {
+              this.log.debug(`AirZone Device: ${device.name}<${device.device_id}>`);
+              const webserverStatus = webservers[device.ws_id] ||
+                await this.airzoneCloudApi.getWebserverStatus(installation!.installation_id, device.ws_id);
+              this.registerDevice({
+                id: device.device_id,
+                groupId: group.group_id,
+                installationId: installation!.installation_id,
+                name: device.name,
+                serialNumber: device.ws_id,
+                model: device.type,
+                firmwareRevision: webserverStatus.config.ws_fw,
+                status: device.status,
+              });
+            }
 
+          }
         }
       }
     }

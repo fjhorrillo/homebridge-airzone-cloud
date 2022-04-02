@@ -136,6 +136,7 @@ export class AirzoneCloudPlatformAccessory {
    * throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
    */
   async getCurrentHeatingCoolingState(): Promise<CharacteristicValue> { // Update is async by websocket
+    const startTime = Date.now().valueOf();
     // CurrentHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL
     await this.refresh();
     const currentHeatingCoolingState = this.device.status.power ? (function(mode: DeviceMode) {
@@ -162,13 +163,15 @@ export class AirzoneCloudPlatformAccessory {
       }
     })(this.device.status.mode) : HeatingCoolingState.OFF;
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
-    `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}]`);
+    `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}] in ${time}s`);
 
     return currentHeatingCoolingState;
   }
 
   async getTargetHeatingCoolingState(): Promise<CharacteristicValue> { // Update is async by websocket
+    const startTime = Date.now().valueOf();
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     await this.refresh();
     const targetHeatingCoolingState = this.device.status.power ? (function(mode: DeviceMode) {
@@ -195,54 +198,63 @@ export class AirzoneCloudPlatformAccessory {
       }
     })(this.device.status.mode) : HeatingCoolingState.OFF;
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetHeatingCoolingState -> ` +
-    `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}]`);
+    `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
 
     return targetHeatingCoolingState;
   }
 
   async getCurrentTemperature(): Promise<CharacteristicValue> { // Update is async by websocket
+    const startTime = Date.now().valueOf();
     // CurrentTemperature => Min Value 0, Max Value 100, Min Step 0.1
     await this.refresh();
     const currentTemperature = this.device.status.units ? this.device.status.local_temp.fah : this.device.status.local_temp.celsius;
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
-      `${currentTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)}`);
+      `${currentTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
     return currentTemperature;
   }
 
   async getTargetTemperature(): Promise<CharacteristicValue> { // Update is async by websocket
+    const startTime = Date.now().valueOf();
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     await this.refresh();
     const setpointTemperature = this.device.status.power ?
       this.device.status[this.getTargetTempertureName()] : this.device.status.setpoint_air_stop;
     const targetTemperature = this.device.status.units ? setpointTemperature.fah : setpointTemperature.celsius;
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetTemperature -> ` +
-    `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)}`);
+    `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
     return targetTemperature;
   }
 
   async getTemperatureDisplayUnits(): Promise<CharacteristicValue> {
+    const startTime = Date.now().valueOf();
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
     await this.refresh();
     const temperatureDisplayUnits = this.device.status.units as number as TemperatureDisplayUnits;
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
-      `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}]`);
+      `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
 
     return temperatureDisplayUnits;
   }
 
   async getCurrentRelativeHumidity(): Promise<CharacteristicValue> { // Update is async by websocket
+    const startTime = Date.now().valueOf();
     // CurrentRelativeHumidity => Min Value 0, Max Value 100, Min Step 1
     await this.refresh();
     const currentRelativeHumidity = this.device.status.humidity;
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentRelativeHumidity -> ` +
-      `${currentRelativeHumidity}%`);
+      `${currentRelativeHumidity}% in (${time}s`);
 
     return currentRelativeHumidity;
   }
@@ -252,6 +264,7 @@ export class AirzoneCloudPlatformAccessory {
    * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
    */
   async setTargetHeatingCoolingState(value: CharacteristicValue) {
+    const startTime = Date.now().valueOf();
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     const targetHeatingCoolingState = value as HeatingCoolingState;
 
@@ -283,11 +296,13 @@ export class AirzoneCloudPlatformAccessory {
       this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power).then(() => this.refresh());
     }
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
-      `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}]`);
+      `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
   }
 
   async setTargetTemperature(value: CharacteristicValue) {
+    const startTime = Date.now().valueOf();
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     const targetTemperature = value as number;
 
@@ -295,19 +310,22 @@ export class AirzoneCloudPlatformAccessory {
       this.device.installationId, this.device.id, this.device.status.mode, targetTemperature, this.device.status.units,
     ).then(() => this.refresh());
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ` +
-      `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)}`);
+      `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
   }
 
   async setTemperatureDisplayUnits(value: CharacteristicValue) {
+    const startTime = Date.now().valueOf();
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
     const temperatureDisplayUnits = value as TemperatureDisplayUnits;
     const units = temperatureDisplayUnits as number as Units;
 
     this.platform.airzoneCloudApi.setUnits(units).then(() => this.refresh());
 
+    const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +
-      `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}]`);
+      `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
   }
 
   /**
@@ -343,12 +361,18 @@ export class AirzoneCloudPlatformAccessory {
    * Refresh device status
    */
   private async refresh() {
+    const startTime = Date.now().valueOf();
     try {
       this.platform.log.debug(`${this.device.name}: Starting refresh device statis`);
       const status = await this.platform.airzoneCloudApi.getDeviceStatus(this.device.id, this.device.installationId);
-      status.units = status.units = (await this.platform.airzoneCloudApi.getUser()).config.units || this.device.status.units;
-      this.device.status = status;
-      this.platform.log.debug(`${this.device.name}: Finished refresh device statis`);
+      if (status) {
+        const user = await this.platform.airzoneCloudApi.getUser();
+        status.units = user!.config.units || this.device.status.units;
+        this.device.status = status;
+
+        const time = (Date.now().valueOf() - startTime)/1000;
+        this.platform.log.debug(`${this.device.name}: Finished refresh device statis in ${time}s`);
+      }
     } catch(error) {
       this.platform.log.debug(`${this.device.name}: Error on refresh device statis. ${error}`);
     }

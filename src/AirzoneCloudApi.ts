@@ -55,14 +55,14 @@ export class AirzoneCloudApi {
     password: string,
     user_agent: string,
     base_url: string,
-  ): Promise<AirzoneCloudApi> {
+  ): Promise<AirzoneCloudApi | undefined> {
     // constructor
     const airzoneCloudApi = new AirzoneCloudApi(platform, username, password, user_agent, base_url);
 
     // login
-    await airzoneCloudApi._login();
-
-    return airzoneCloudApi;
+    if (await airzoneCloudApi._login()) {
+      return airzoneCloudApi;
+    }
   }
 
   /*
@@ -70,7 +70,7 @@ export class AirzoneCloudApi {
    */
 
   /* Login to AirzoneCloud and return token */
-  private async _login(): Promise<LogedUser> {
+  private async _login(): Promise<LogedUser | undefined> {
     const payload = {
       'email': this._username,
       'password': this._password,
@@ -88,8 +88,8 @@ export class AirzoneCloudApi {
 
       return user;
     } catch (error) {
-      this.platform.log.error(`Error in login ${error}`);
-      throw new Error(`Error in login ${error}`);
+      this.platform.log.error(`Error in login. ${error}`);
+      //throw new Error('Error in login');
     }
   }
 
@@ -183,23 +183,21 @@ export class AirzoneCloudApi {
         this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)}\x1b[0m`);
         return data;
       }
-    } else if (response.status === 401 && this._refreshToken) {
-      if (await this.refreshToken() || await this._login()) {
-        // reconect websocket
-        this._airzoneCloudSocket.disconnectSocket();
-        await this._airzoneCloudSocket.connectUserSocket(this._token);
-        this.platform.log.info('Websocket reconnected');
+    } else if (response.status === 401 && this._refreshToken && (await this.refreshToken() || await this._login())) {
+      // reconect websocket
+      this._airzoneCloudSocket.disconnectSocket();
+      await this._airzoneCloudSocket.connectUserSocket(this._token);
+      this.platform.log.info('Websocket reconnected');
 
-        return await this._request(method, api_endpoint, params, headers, json);
-      } else {
-        throw new Error(`Status: ${response.status} ${response.statusText}`);
-      }
+      return await this._request(method, api_endpoint, params, headers, json);
     } else {
+      const data = await response.json();
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
-        `${response.status === 400?` Response: ${JSON.stringify(await response.json())}`:''}`);
-      this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m Response: ${JSON.stringify(response)} for ` +
-        `\x1b[34m⬆\x1b[0m Request: ${JSON.stringify(options, this._obfusked)}\x1b[0m`);
-      throw new Error(`Status: ${response.status} ${response.statusText}`);
+        `${response.status === 400?` Response: ${JSON.stringify(data)}`:''}`);
+      this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)} for \x1b[0m` +
+        `\x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
+        `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
+      throw new Error(data.msg || data.message);
     }
   }
 
@@ -224,7 +222,7 @@ export class AirzoneCloudApi {
    * @param {string} page - Opcional: Page to return of items
    * @return {Installation[]} - Datos de la instalación parseados y validados
    */
-  async getInstallations(filterParam?: string, filterValue?: string, items?: number, page?: number): Promise<Installation[]> {
+  async getInstallations(filterParam?: string, filterValue?: string, items?: number, page?: number): Promise<Installation[] | undefined> {
     const params = {};
     if (filterParam && filterValue) {
       params['filterParam'] = filterParam;
@@ -240,8 +238,8 @@ export class AirzoneCloudApi {
     try {
       return (await this._get(API_INSTALLATIONS, params)).installations;
     } catch (error) {
-      this.platform.log.error(`Error in getInstallations ${error}`);
-      throw new Error('Error in getInstallations');
+      this.platform.log.error(`Error in getInstallations. ${error}`);
+      //throw new Error('Error in getInstallations');
     }
   }
 
@@ -251,7 +249,7 @@ export class AirzoneCloudApi {
    * @param installationId - Identificador de la installación
    * @return {Installation} - Datos de la estructura de la instalación y sus zonas parseados y validados
    */
-  async getInstallation(installationId: string): Promise<Installation> {
+  async getInstallation(installationId: string): Promise<Installation | undefined> {
     try {
       const deviceStatus = await this._airzoneCloudSocket.listenInstallation(installationId);
       const installation = await this._get(`${API_INSTALLATIONS}/${installationId}`);
@@ -262,8 +260,8 @@ export class AirzoneCloudApi {
       }
       return installation;
     } catch (error) {
-      this.platform.log.error(`Error in getInstallation ${error}`);
-      throw new Error('Error in getInstallation');
+      this.platform.log.error(`Error in getInstallation. ${error}`);
+      //throw new Error('Error in getInstallation');
     }
   }
 
@@ -273,7 +271,7 @@ export class AirzoneCloudApi {
    * @param {String} installationId - id de la instalación
    * @return {Webserver[]} - lista de webservers
    */
-  async getWebservers(installationId): Promise<Webserver[]> {
+  async getWebservers(installationId): Promise<Webserver[] | undefined> {
     const params = {
       'installation_id': installationId,
     };
@@ -281,8 +279,8 @@ export class AirzoneCloudApi {
     try {
       return await this._get(`${API_DEVICES}/wwss`, params);
     } catch (error) {
-      this.platform.log.error(`Error in getWebservers ${error}`);
-      throw new Error('Error in getWebservers');
+      this.platform.log.error(`Error in getWebservers. ${error}`);
+      //throw new Error('Error in getWebservers');
     }
   }
 
@@ -293,7 +291,7 @@ export class AirzoneCloudApi {
    * @param {String} webserverId - id del webserver
    * @return {Webserver} - webservers
    */
-  async getWebserverStatus(installationId, webserverId, devices = false): Promise<Webserver> {
+  async getWebserverStatus(installationId, webserverId, devices = false): Promise<Webserver | undefined> {
     const params = {
       'installation_id': installationId,
     };
@@ -307,8 +305,8 @@ export class AirzoneCloudApi {
       webserver._id = webserverId;
       return webserver;
     } catch (error) {
-      this.platform.log.error(`Error in getWebserverStatus ${error}`);
-      throw new Error('Error in getWebserverStatus');
+      this.platform.log.error(`Error in getWebserverStatus. ${error}`);
+      //throw new Error('Error in getWebserverStatus');
     }
   }
 
@@ -320,7 +318,7 @@ export class AirzoneCloudApi {
    * @param {string} type - Typo de configuración. Puede ser 'all', 'user' o 'advanced'. Por defecto es 'user'
    * @return {DeviceConfig} - configuracion del dispositivo
    */
-  async getDeviceConfig(deviceId: string, installationId: string, type = 'advanced'): Promise<DeviceConfig> {
+  async getDeviceConfig(deviceId: string, installationId: string, type = 'advanced'): Promise<DeviceConfig | undefined> {
     const params = {
       'installation_id': installationId,
     };
@@ -331,8 +329,8 @@ export class AirzoneCloudApi {
     try {
       return await this._get(`${API_DEVICES}/${deviceId}/config`, params);
     } catch (error) {
-      this.platform.log.error(`Error in getDeviceConfig ${error}`);
-      throw new Error('Error in getDeviceConfig');
+      this.platform.log.error(`Error in getDeviceConfig. ${error}`);
+      //throw new Error('Error in getDeviceConfig');
     }
   }
 
@@ -343,7 +341,7 @@ export class AirzoneCloudApi {
    * @param {string} installationId - ID de la instalación a la que pertenece
    * @return {DeviceStatus} - status del dispositivo
    */
-  async getDeviceStatus(deviceId: string, installationId: string): Promise<DeviceStatus> {
+  async getDeviceStatus(deviceId: string, installationId: string): Promise<DeviceStatus | undefined> {
     const params = {
       'installation_id': installationId,
     };
@@ -351,17 +349,17 @@ export class AirzoneCloudApi {
     try {
       return await this._get(`${API_DEVICES}/${deviceId}/status`, params);
     } catch (error) {
-      this.platform.log.error(`Error in getDeviceStatus ${error}`);
-      throw new Error('Error in getDeviceStatus');
+      this.platform.log.error(`Error in getDeviceStatus. ${error}`);
+      //throw new Error('Error in getDeviceStatus');
     }
   }
 
-  public async getUser(): Promise<User> {
+  public async getUser(): Promise<User | undefined> {
     try {
       return (await this._get(API_USER));
     } catch (error) {
-      this.platform.log.error(`Error in getUser ${error}`);
-      throw new Error('Error in getUser');
+      this.platform.log.error(`Error in getUser. ${error}`);
+      //throw new Error('Error in getUser');
     }
   }
 
@@ -373,8 +371,8 @@ export class AirzoneCloudApi {
     try {
       return await this._patch(`${API_USER}/config`, payload);
     } catch (error) {
-      this.platform.log.error(`Error in setUnits ${error}`);
-      throw new Error('Error in setUnits');
+      this.platform.log.error(`Error in setUnits. ${error}`);
+      //throw new Error('Error in setUnits');
     }
   }
 
@@ -388,8 +386,8 @@ export class AirzoneCloudApi {
     try {
       return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
     } catch (error) {
-      this.platform.log.error(`Error in setDevicePower ${error}`);
-      throw new Error('Error in setDevicePower');
+      this.platform.log.error(`Error in setDevicePower. ${error}`);
+      //throw new Error('Error in setDevicePower');
     }
   }
 
@@ -403,8 +401,8 @@ export class AirzoneCloudApi {
     try {
       return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
     } catch (error) {
-      this.platform.log.error(`Error in setDeviceMode ${error}`);
-      throw new Error('Error in setDeviceMode');
+      this.platform.log.error(`Error in setDeviceMode. ${error}`);
+      //throw new Error('Error in setDeviceMode');
     }
   }
 
@@ -418,8 +416,8 @@ export class AirzoneCloudApi {
     try {
       return await this._put(`${API_INSTALLATIONS}/${installationId}/group/${groupId}`, payload);
     } catch (error) {
-      this.platform.log.error(`Error in setGroupMode ${error}`);
-      throw new Error('Error in setGroupMode');
+      this.platform.log.error(`Error in setGroupMode. ${error}`);
+      //throw new Error('Error in setGroupMode');
     }
   }
 
@@ -443,7 +441,12 @@ export class AirzoneCloudApi {
       },
     };
 
-    return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
+    try {
+      return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setTemperature. ${error}`);
+      //throw new Error('Error in setTemperature');
+    }
   }
 
   public allOtherOff(deviceId: string): boolean {
