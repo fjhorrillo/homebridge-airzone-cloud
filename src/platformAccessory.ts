@@ -215,7 +215,7 @@ export class AirzoneCloudPlatformAccessory {
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
       `${currentTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
-    return currentTemperature;
+    return this.device.status.local_temp.celsius; // HomeKit work with celsius
   }
 
   async getTargetTemperature(): Promise<CharacteristicValue> { // Update is async by websocket
@@ -230,7 +230,7 @@ export class AirzoneCloudPlatformAccessory {
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetTemperature -> ` +
     `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
-    return targetTemperature;
+    return setpointTemperature.celsius; // HomeKit work with celsius
   }
 
   async getTemperatureDisplayUnits(): Promise<CharacteristicValue> {
@@ -304,15 +304,18 @@ export class AirzoneCloudPlatformAccessory {
   async setTargetTemperature(value: CharacteristicValue) {
     const startTime = Date.now().valueOf();
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
-    const targetTemperature = value as number;
+    // HomeKit works with celsius so it will transform to fahrenheit if necessary
+    const targetUnits = this.device.status.units;
+    this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ${value} ${targetUnits}`);
+    const targetTemperature = (targetUnits === Units.FARENHEIT) ? Math.round(((value as number * 9 / 5) + 32) * 10) / 10 : value as number;
 
     this.platform.airzoneCloudApi.setTemperature(
-      this.device.installationId, this.device.id, this.device.status.mode, targetTemperature, this.device.status.units,
-    ).then(() => this.refresh());
+      this.device.installationId, this.device.id, this.device.status.mode, targetTemperature, targetUnits,
+    ).then(() => this.refresh()); // HomeKit work with celsius
 
     const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ` +
-      `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
+      `${targetTemperature}º${TemperatureDisplayUnits[targetUnits].charAt(0)} in ${time}s`);
   }
 
   async setTemperatureDisplayUnits(value: CharacteristicValue) {
