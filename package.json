@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge Airzone Cloud",
   "name": "homebridge-airzone-cloud",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Homebridge plugin for Airzone Cloud.",
   "author": "Francisco Javier Horrillo Sancho",
   "license": "Apache-2.0",
