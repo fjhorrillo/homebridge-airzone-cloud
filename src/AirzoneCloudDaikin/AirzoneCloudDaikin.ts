@@ -106,7 +106,7 @@ export class AirzoneCloudDaikin {
       }),
     };
     this.platform.log.trace(`Request: ${options.method} ${options.url}`);
-    const response = await fetch( options.url.toString(), options);
+    const response = await fetch(options.url.toString(), options);
     if (response && response.ok) {
       const data = await response.json() as User;
       this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
