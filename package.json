@@ -1,5 +1,4 @@
 {
-  "private": true,
   "displayName": "Homebridge Airzone Cloud",
   "name": "homebridge-airzone-cloud",
   "version": "0.3.3",
