@@ -151,14 +151,13 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
                 id: device.device_id,
                 groupId: group.group_id,
                 installationId: installation!.installation_id,
-                name: device.name,
+                name: device.name || group.name || installation!.name,
                 serialNumber: device.ws_id,
                 model: device.type,
                 firmwareRevision: webserverStatus.config.ws_fw,
                 status: device.status,
               });
             }
-
           }
         }
       }
