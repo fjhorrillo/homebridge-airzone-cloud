@@ -4,11 +4,12 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 import { API_LOGIN, API_INSTALLATION_RELATIONS, API_DEVICES, API_EVENTS } from './constants';
 import { Installation, Device } from '.';
 import { URL, URLSearchParams } from 'url';
+import { User, InstallationRelations, Devices } from './interface/daikin';
 
 /* Allow to connect to AirzoneCloudDaikin API */
 export class AirzoneCloudDaikin {
@@ -105,9 +106,9 @@ export class AirzoneCloudDaikin {
       }),
     };
     this.platform.log.trace(`Request: ${options.method} ${options.url}`);
-    const response = await fetch( options.url, options);
+    const response = await fetch( options.url.toString(), options);
     if (response && response.ok) {
-      const data = await response.json();
+      const data = await response.json() as User;
       this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
       this._token = data.user.authentication_token;
       this.platform.log.info(`Login success as ${this._username}`);
@@ -149,14 +150,14 @@ export class AirzoneCloudDaikin {
   /* Http GET to load installations relations */
   public async _get_installation_relations() {
     this.platform.log.trace('get_installation_relations()');
-    const response = await this._get(API_INSTALLATION_RELATIONS);
+    const response = await this._get(API_INSTALLATION_RELATIONS) as InstallationRelations;
     return response.installation_relations;
   }
 
   /* Http GET to load devices */
   public async _get_devices(installation_id) {
     this.platform.log.trace(`get_devices(installation_id=${installation_id})`);
-    return (await this._get(API_DEVICES, {'installation_id': installation_id})).devices;
+    return (await this._get(API_DEVICES, {'installation_id': installation_id}) as Devices).devices;
   }
 
   /* Http POST to send an event */
@@ -212,7 +213,7 @@ export class AirzoneCloudDaikin {
       body: json,
     };
     this.platform.log.trace(`Request: ${options.method} ${options.url}`);
-    const response = await fetch(options.url, options);
+    const response = await fetch(options.url.toString(), options);
     if (response && response.ok) {
       const data = await response.json();
       this.platform.log.trace(`Response: ${JSON.stringify(data)}`);

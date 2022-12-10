@@ -4,11 +4,12 @@
 
 import { AirzoneCloudHomebridgePlatform } from '../platform';
 
-import fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 import { API_LOGIN, API_DEVICE_RELATIONS, API_SYSTEMS, API_ZONES, API_EVENTS } from './constants';
 import {Device, System, Zone} from '.';
 import { URL, URLSearchParams } from 'url';
+import { User, DeviceRelations, Systems, Zones } from './interface/airzonecloud';
 
 /* Allow to connect to AirzoneCloud API */
 export class AirzoneCloud {
@@ -118,9 +119,9 @@ export class AirzoneCloud {
       }),
     };
     this.platform.log.trace(`Request: ${options.method} ${options.url}`);
-    const response = await fetch( options.url, options);
+    const response = await fetch( options.url.toString(), options);
     if (response && response.ok) {
-      const data = await response.json();
+      const data = await response.json() as User;
       this.platform.log.trace(`Response: ${JSON.stringify(data)}`);
       this._token = data.user.authentication_token;
       this.platform.log.info(`Login success as ${this._username}`);
@@ -162,20 +163,20 @@ export class AirzoneCloud {
   /* Http GET to load devices */
   public async _get_device_relations() {
     this.platform.log.trace('get_device_relations()');
-    const response = await this._get(API_DEVICE_RELATIONS);
+    const response = await this._get(API_DEVICE_RELATIONS) as DeviceRelations;
     return response.device_relations;
   }
 
   /* Http GET to load systems */
   public async _get_systems(device_id) {
     this.platform.log.trace(`get_systems(device_id=${device_id})`);
-    return (await this._get(API_SYSTEMS, {'device_id': device_id})).systems;
+    return (await this._get(API_SYSTEMS, {'device_id': device_id}) as Systems).systems;
   }
 
   /* Http GET to load zones */
   public async _get_zones(system_id) {
     this.platform.log.trace(`get_zones(system_id=${system_id})`);
-    return (await this._get(API_ZONES, {'system_id': system_id})).zones;
+    return (await this._get(API_ZONES, {'system_id': system_id}) as Zones).zones;
   }
 
   /* Http POST to send an event */
@@ -231,7 +232,7 @@ export class AirzoneCloud {
       body: json,
     };
     this.platform.log.trace(`Request: ${options.method} ${options.url}`);
-    const response = await fetch(options.url, options);
+    const response = await fetch(options.url.toString(), options);
     if (response && response.ok) {
       const data = await response.json();
       this.platform.log.trace(`Response: ${JSON.stringify(data)}`);

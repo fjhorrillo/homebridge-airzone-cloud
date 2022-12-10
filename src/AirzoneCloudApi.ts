@@ -4,13 +4,13 @@
 
 import { AirzoneCloudHomebridgePlatform } from './platform';
 
-import fetch = require('node-fetch');
+import fetch from 'node-fetch';
 import { AirzoneCloudSocket } from './AirzoneCloudSocket';
 
 import { API_LOGIN, API_REFRESH_TOKEN, API_INSTALLATIONS, API_DEVICES, API_USER } from './constants';
 import { URL, URLSearchParams } from 'url';
 import { Installation, Webserver, Units, User, LogedUser, SetpointAir } from './interface/airzonecloud';
-import { DeviceConfig, DeviceMode, DeviceStatus } from './interface/airzonecloud';
+import { DeviceConfig, DeviceMode, DeviceStatus, Error } from './interface/airzonecloud';
 
 enum HTTPMethod {
   POST = 'POST',
@@ -176,7 +176,7 @@ export class AirzoneCloudApi {
     };
     this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
       `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
-    const response = await fetch(options.url, options);
+    const response = await fetch(options.url.toString(), options);
     if (response && response.ok) {
       if (response.status !== 204) {
         const data = await response.json();
@@ -191,13 +191,13 @@ export class AirzoneCloudApi {
 
       return await this._request(method, api_endpoint, params, headers, json);
     } else {
-      const data = await response.json();
+      const data = await response.json() as Error;
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
         `${response.status === 400?` Response: ${JSON.stringify(data)}`:''}`);
       this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)} for \x1b[0m` +
         `\x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
         `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
-      throw new Error(data.msg || data.message);
+      throw new Error(data.msg);
     }
   }
 

@@ -230,3 +230,30 @@ export interface Webserver {
   config: WebserverConfig;
   devices?: WebserverDevice[];
 }
+
+/**
+ * Error
+ */
+export interface ErrorDataRangeValue {
+  value: number;
+  scale: number;
+}
+
+export interface ErrorDataRange {
+  minimumValue: ErrorDataRangeValue;
+  maximumValue: ErrorDataRangeValue;
+}
+
+export interface ErrorData {
+  argument?: string;
+  cause?: string;
+  validRange?: ErrorDataRange;
+  reason?: string;
+}
+
+export interface Error {
+  _id: string;
+  msg: string;
+  data?: ErrorData;
+  reqId?: string;
+}
