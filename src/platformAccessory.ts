@@ -222,7 +222,7 @@ export class AirzoneCloudPlatformAccessory {
     const startTime = Date.now().valueOf();
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     await this.refresh();
-    const setpointTemperature = this.device.status.power ?
+    const setpointTemperature = (this.device.status.power && this.device.status.hasOwnProperty(this.getTargetTempertureName())) ?
       this.device.status[this.getTargetTempertureName()] : this.device.status.setpoint_air_stop || this.device.status.setpoint_air_auto;
     const targetTemperature = this.device.status.units ? setpointTemperature.fah : setpointTemperature.celsius;
 
