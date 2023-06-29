@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
 import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger } from './platform';
-import { DeviceMode, Units } from './interface/airzonecloud';
+import { DeviceMode, Units, FanSpeed } from './interface/airzonecloud';
 
 /**
  * Internal types
@@ -16,6 +16,366 @@ enum HeatingCoolingState {
 enum TemperatureDisplayUnits {
   CELSIUS = 0,
   FAHRENHEIT = 1
+}
+
+enum FanDisplaySpeed {
+  OFF = 0,
+  LOW = 25,
+  MEDIUM = 50,
+  HIGH = 100
+}
+
+/**
+ * Platform Accessory
+ * An instance of this class is created for each accessory your platform registers
+ * Each accessory may expose multiple services of different service types.
+ */
+export class AirzoneDrySwitchCloudPlatformAccessory {
+  private service: Service;
+  private device: DeviceType;
+
+  constructor(
+    private readonly platform: AirzoneCloudHomebridgePlatform,
+    private readonly accessory: PlatformAccessory,
+  ) {
+    this.platform.log.debug(`Accesory dry switch context: ${JSON.stringify(accessory.context)}`);
+    this.device = accessory.context.device;
+
+    // set accessory information
+    this.accessory.getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
+      .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision);
+    // get the Switch service if it exists, otherwise create a new Thermostat service
+    // you can create multiple services for each accessory
+    this.service = this.accessory.getService(this.platform.Service.Switch) ||
+      this.accessory.addService(this.platform.Service.Switch);
+
+    // create handlers for required characteristics
+    this.service.getCharacteristic(this.platform.Characteristic.On)
+      .onGet(this.getDrySwitchState.bind(this))
+      .onSet(this.setDrySwitchState.bind(this));
+
+    setInterval(() => {
+      this.refresh();
+    }, 60000 * 8);
+  }
+
+  /**
+   * Handle requests to get the current value of the "On" characteristic
+   */
+  async getDrySwitchState() {
+    const startTime = Date.now().valueOf();
+    // currentDryState => false:OFF, true:ON
+    await this.refresh();
+    const currentDryState = this.device.status.power ? (function (mode) {
+      switch (mode) {
+        case DeviceMode.DRY:
+          return true;
+        default:
+          return false;
+      }
+    })(this.device.status.mode) : false;
+    const time = (Date.now().valueOf() - startTime) / 1000;
+    this.platform.log.debug(`${this.device.name}: Get Characteristic currentDryState -> ` +
+      `${currentDryState} in ${time}s`);
+    return currentDryState;
+  }
+
+  /**
+   * Handle requests to get the current value of the "On" characteristic
+   */
+  async setDrySwitchState(value) {
+    const startTime = Date.now().valueOf();
+    await this.refresh();
+    // targetDryState => false:OFF, true:ON
+    const targetDryState = value;
+    // transform
+    const mode = (function (mode) {
+      switch (mode) {
+        case true: return DeviceMode.DRY;
+        case false: return DeviceMode.STOP;
+        default: return DeviceMode.STOP;
+      }
+    })(targetDryState);
+    const power = mode !== DeviceMode.STOP;
+    this.platform.log.debug(`${this.device.name}: Set Characteristic targetDryState -> ` +
+      `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
+      `Power from ${this.device.status.power ? 'ON' : 'OFF'}[${this.device.status.power}] to ${power ? 'ON' : 'OFF'}[${power}] and ` +
+      `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}]`);
+    // Switch mode to stop only if all zones are off
+    if (mode !== this.device.status.mode) { // only if mode is changed
+      if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP && this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
+        // mode is changed through group
+        this.platform.airzoneCloudApi.setGroupMode(this.device, mode).then(() => this.refresh());
+      }
+    }
+    if (power !== this.device.status.power) { // only if power is changed
+      this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power).then(() => this.refresh());
+    }
+    const time = (Date.now().valueOf() - startTime) / 1000;
+    this.platform.log.info(`${this.device.name}: Set Characteristic targetDryState -> ` +
+      `${targetDryState} in ${time}s`);
+  }
+
+  /**
+   * Refresh device status
+   */
+  private async refresh() {
+    const startTime = Date.now().valueOf();
+    try {
+      this.platform.log.debug(`${this.device.name}: Starting refresh device statis`);
+      const status = await this.platform.airzoneCloudApi.getDeviceStatus(this.device.id, this.device.installationId);
+      if (status) {
+        const user = await this.platform.airzoneCloudApi.getUser();
+        status.units = user!.config.units || this.device.status.units;
+        this.device.status = status;
+
+        const time = (Date.now().valueOf() - startTime) / 1000;
+        this.platform.log.debug(`${this.device.name}: Finished refresh device statis in ${time}s`);
+      }
+    } catch (error) {
+      this.platform.log.debug(`${this.device.name}: Error on refresh device statis. ${error}`);
+    }
+  }
+}
+
+/**
+ * Platform Accessory
+ * An instance of this class is created for each accessory your platform registers
+ * Each accessory may expose multiple services of different service types.
+ */
+export class AirzoneFanSwitchCloudPlatformAccessory {
+  private service: Service;
+  private device: DeviceType;
+
+  constructor(
+    private readonly platform: AirzoneCloudHomebridgePlatform,
+    private readonly accessory: PlatformAccessory,
+  ) {
+    this.platform.log.debug(`Accesory fan switch context: ${JSON.stringify(accessory.context)}`);
+    this.device = accessory.context.device;
+
+    // set accessory information
+    this.accessory.getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
+      .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision);
+    // get the Switch service if it exists, otherwise create a new Thermostat service
+    // you can create multiple services for each accessory
+    this.service = this.accessory.getService(this.platform.Service.Switch) ||
+      this.accessory.addService(this.platform.Service.Switch);
+
+    // create handlers for required characteristics
+    this.service.getCharacteristic(this.platform.Characteristic.On)
+      .onGet(this.getFanSwitchState.bind(this))
+      .onSet(this.setFanSwitchState.bind(this));
+
+    setInterval(() => {
+      this.refresh();
+    }, 60000 * 5);
+  }
+
+  /**
+     * Handle requests to get the current value of the "On" characteristic
+     */
+  async getFanSwitchState() {
+    const startTime = Date.now().valueOf();
+    // currentFanState => false:OFF, true:ON
+    await this.refresh();
+    const currentFanState = this.device.status.power ? (function (mode) {
+      switch (mode) {
+        case DeviceMode.FAN:
+          return true;
+        default:
+          return false;
+      }
+    })(this.device.status.mode) : false;
+    const time = (Date.now().valueOf() - startTime) / 1000;
+    this.platform.log.debug(`${this.device.name}: Get Characteristic currentFanState -> ` +
+      `${currentFanState} in ${time}s`);
+    return currentFanState;
+  }
+
+  /**
+   * Handle requests to get the current value of the "On" characteristic
+   */
+  async setFanSwitchState(value) {
+    const startTime = Date.now().valueOf();
+    await this.refresh();
+    // targetFanState => false:OFF, true:ON
+    const targetFanState = value;
+    // transform
+    const mode = (function (mode) {
+      switch (mode) {
+        case true: return DeviceMode.FAN;
+        case false: return DeviceMode.STOP;
+        default: return DeviceMode.STOP;
+      }
+    })(targetFanState);
+    const power = mode !== DeviceMode.STOP;
+    this.platform.log.debug(`${this.device.name}: Set Characteristic targetFanState -> ` +
+      `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
+      `Power from ${this.device.status.power ? 'ON' : 'OFF'}[${this.device.status.power}] to ${power ? 'ON' : 'OFF'}[${power}] and ` +
+      `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}]`);
+    // Switch mode to stop only if all zones are off
+    if (mode !== this.device.status.mode) { // only if mode is changed
+      if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP && this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
+        // mode is changed through group
+        this.platform.airzoneCloudApi.setGroupMode(this.device, mode).then(() => this.refresh());
+      }
+    }
+    if (power !== this.device.status.power) { // only if power is changed
+      this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power).then(() => this.refresh());
+    }
+    const time = (Date.now().valueOf() - startTime) / 1000;
+    this.platform.log.info(`${this.device.name}: Set Characteristic targetFanState -> ` +
+      `${targetFanState} in ${time}s`);
+
+  }
+
+
+  /**
+   * Refresh device status
+   */
+  private async refresh() {
+    const startTime = Date.now().valueOf();
+    try {
+      this.platform.log.debug(`${this.device.name}: Starting refresh device statis`);
+      const status = await this.platform.airzoneCloudApi.getDeviceStatus(this.device.id, this.device.installationId);
+      if (status) {
+        const user = await this.platform.airzoneCloudApi.getUser();
+        status.units = user!.config.units || this.device.status.units;
+        this.device.status = status;
+
+        const time = (Date.now().valueOf() - startTime) / 1000;
+        this.platform.log.debug(`${this.device.name}: Finished refresh device statis in ${time}s`);
+      }
+    } catch (error) {
+      this.platform.log.debug(`${this.device.name}: Error on refresh device statis. ${error}`);
+    }
+  }
+}
+
+/**
+ * Platform Accessory
+ * An instance of this class is created for each accessory your platform registers
+ * Each accessory may expose multiple services of different service types.
+ */
+export class AirzoneFanCloudPlatformAccessory {
+  private service: Service;
+  private device: DeviceType;
+
+  constructor(
+    private readonly platform: AirzoneCloudHomebridgePlatform,
+    private readonly accessory: PlatformAccessory,
+  ) {
+    this.platform.log.debug(`Accesory dry switch context: ${JSON.stringify(accessory.context)}`);
+    this.device = accessory.context.device;
+
+    // set accessory information
+    this.accessory.getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Airzone')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.device.serialNumber)
+      .setCharacteristic(this.platform.Characteristic.Model, accessory.context.device.model)
+      .updateCharacteristic(this.platform.Characteristic.FirmwareRevision, accessory.context.device.firmwareRevision);
+    // get the Fanv2 service if it exists, otherwise create a new Thermostat service
+    // you can create multiple services for each accessory
+    this.service = this.accessory.getService(this.platform.Service.Fanv2) ||
+      this.accessory.addService(this.platform.Service.Fanv2);
+
+    // create handlers for required characteristics
+    this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+      .setProps({
+        minValue: 0,
+        maxValue: 100,
+        minStep: 25,
+      })
+      .onGet(this.getCurrentRotationSpeed.bind(this))
+      .onSet(this.setTargetRotationSpeed.bind(this));
+
+    setInterval(() => {
+      this.refresh();
+    }, 60000 * 3);
+  }
+
+  /**
+     * Handle requests to get the current value of the "On" characteristic
+     */
+  async getCurrentRotationSpeed() {
+    const startTime = Date.now().valueOf();
+    await this.refresh();
+    let currentRotationSpeed = (function (speed_conf) {
+      switch (speed_conf) {
+        case FanSpeed.LOW:
+          return FanDisplaySpeed.LOW;
+        case FanSpeed.MEDIUM:
+          return FanDisplaySpeed.MEDIUM;
+        case FanSpeed.HIGH:
+          return FanDisplaySpeed.HIGH;
+        default:
+          return FanDisplaySpeed.LOW;
+      }
+    })(this.device.status.speed_conf);
+    // dry mode can't set fan speed
+    if (this.device.status.mode === DeviceMode.DRY) {
+      currentRotationSpeed = FanDisplaySpeed.OFF;
+    }
+    const time = (Date.now().valueOf() - startTime) / 1000;
+    this.platform.log.debug(`${this.device.name}: Get Characteristic currentRotationSpeed -> ` +
+      `${FanDisplaySpeed[currentRotationSpeed]}[${currentRotationSpeed}] in ${time}s`);
+    return currentRotationSpeed;
+  }
+
+  /**
+   * Handle requests to get the current value of the "On" characteristic
+   */
+  async setTargetRotationSpeed(value) {
+    const startTime = Date.now().valueOf();
+    await this.refresh();
+    // setting the fan speed in dry mode will throw an error
+    if (this.device.status.mode === DeviceMode.DRY) {
+      return;
+    }
+    const targetFanSpeed = value;
+    // transform
+    let speed = FanSpeed.LOW;
+    if (targetFanSpeed === FanDisplaySpeed.HIGH) {
+      speed = FanSpeed.HIGH;
+    } else if (targetFanSpeed >= FanDisplaySpeed.MEDIUM) {
+      speed = FanSpeed.MEDIUM;
+    }
+
+    if (speed !== this.device.status.speed_conf) {
+      this.platform.airzoneCloudApi.setFanSpeed(this.device.installationId, this.device.id, speed);
+    }
+    const time = (Date.now().valueOf() - startTime) / 1000;
+    this.platform.log.info(`${this.device.name}: Set Characteristic targetFanSpeed -> ` +
+      `${FanDisplaySpeed[targetFanSpeed]}[${targetFanSpeed}] in ${time}s`);
+  }
+
+  /**
+   * Refresh device status
+   */
+  private async refresh() {
+    const startTime = Date.now().valueOf();
+    try {
+      this.platform.log.debug(`${this.device.name}: Starting refresh device statis`);
+      const status = await this.platform.airzoneCloudApi.getDeviceStatus(this.device.id, this.device.installationId);
+      if (status) {
+        const user = await this.platform.airzoneCloudApi.getUser();
+        status.units = user!.config.units || this.device.status.units;
+        this.device.status = status;
+
+        const time = (Date.now().valueOf() - startTime) / 1000;
+        this.platform.log.debug(`${this.device.name}: Finished refresh device statis in ${time}s`);
+      }
+    } catch (error) {
+      this.platform.log.debug(`${this.device.name}: Error on refresh device statis. ${error}`);
+    }
+  }
 }
 
 /**
@@ -44,7 +404,7 @@ export class AirzoneCloudPlatformAccessory {
     // get the Thermostat service if it exists, otherwise create a new Thermostat service
     // you can create multiple services for each accessory
     this.service = this.accessory.getService(this.platform.Service.Thermostat) ||
-                   this.accessory.addService(this.platform.Service.Thermostat);
+      this.accessory.addService(this.platform.Service.Thermostat);
 
     // set the service name, this is what is displayed as the default name on the Home app
     // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
@@ -114,6 +474,9 @@ export class AirzoneCloudPlatformAccessory {
         this.platform.log.debug(`${this.device.name}: Status -> ${JSON.stringify(this.device.status)}`);
       }, 10000);
     }
+    setInterval(() => {
+      this.refresh();
+    }, 60000 * 7);
   }
 
   /**
@@ -139,8 +502,8 @@ export class AirzoneCloudPlatformAccessory {
     const startTime = Date.now().valueOf();
     // CurrentHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL
     await this.refresh();
-    const currentHeatingCoolingState = this.device.status.power ? (function(mode: DeviceMode) {
-      switch(mode) {
+    const currentHeatingCoolingState = this.device.status.power ? (function (mode: DeviceMode) {
+      switch (mode) {
         case DeviceMode.STOP:
         case DeviceMode.FAN:
         case DeviceMode.DRY:
@@ -163,9 +526,9 @@ export class AirzoneCloudPlatformAccessory {
       }
     })(this.device.status.mode) : HeatingCoolingState.OFF;
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
-    `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}] in ${time}s`);
+      `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}] in ${time}s`);
 
     return currentHeatingCoolingState;
   }
@@ -174,8 +537,8 @@ export class AirzoneCloudPlatformAccessory {
     const startTime = Date.now().valueOf();
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     await this.refresh();
-    const targetHeatingCoolingState = this.device.status.power ? (function(mode: DeviceMode) {
-      switch(mode) {
+    const targetHeatingCoolingState = this.device.status.power ? (function (mode: DeviceMode) {
+      switch (mode) {
         case DeviceMode.STOP:
         case DeviceMode.FAN:
         case DeviceMode.DRY:
@@ -198,9 +561,9 @@ export class AirzoneCloudPlatformAccessory {
       }
     })(this.device.status.mode) : HeatingCoolingState.OFF;
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetHeatingCoolingState -> ` +
-    `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
+      `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
 
     return targetHeatingCoolingState;
   }
@@ -211,7 +574,7 @@ export class AirzoneCloudPlatformAccessory {
     await this.refresh();
     const currentTemperature = this.device.status.units ? this.device.status.local_temp.fah : this.device.status.local_temp.celsius;
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
       `${currentTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
@@ -222,13 +585,13 @@ export class AirzoneCloudPlatformAccessory {
     const startTime = Date.now().valueOf();
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     await this.refresh();
-    const setpointTemperature = this.device.status.power ?
+    const setpointTemperature = (this.device.status.power && this.device.status.hasOwnProperty(this.getTargetTempertureName())) ?
       this.device.status[this.getTargetTempertureName()] : this.device.status.setpoint_air_stop || this.device.status.setpoint_air_auto;
     const targetTemperature = this.device.status.units ? setpointTemperature.fah : setpointTemperature.celsius;
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic TargetTemperature -> ` +
-    `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
+      `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
     return setpointTemperature.celsius; // HomeKit work with celsius
   }
@@ -239,7 +602,7 @@ export class AirzoneCloudPlatformAccessory {
     await this.refresh();
     const temperatureDisplayUnits = this.device.status.units as number as TemperatureDisplayUnits;
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
       `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
 
@@ -252,7 +615,7 @@ export class AirzoneCloudPlatformAccessory {
     await this.refresh();
     const currentRelativeHumidity = this.device.status.humidity;
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentRelativeHumidity -> ` +
       `${currentRelativeHumidity}% in (${time}s`);
 
@@ -269,7 +632,7 @@ export class AirzoneCloudPlatformAccessory {
     const targetHeatingCoolingState = value as HeatingCoolingState;
 
     // transform
-    const mode = (function(mode: HeatingCoolingState) {
+    const mode = (function (mode: HeatingCoolingState) {
       switch (mode) {
         case HeatingCoolingState.OFF: return DeviceMode.STOP;
         case HeatingCoolingState.HEAT: return DeviceMode.HEATING;
@@ -282,21 +645,21 @@ export class AirzoneCloudPlatformAccessory {
 
     this.platform.log.debug(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
-      `Power from ${this.device.status.power?'ON':'OFF'}[${this.device.status.power}] to ${power?'ON':'OFF'}[${power}] and ` +
+      `Power from ${this.device.status.power ? 'ON' : 'OFF'}[${this.device.status.power}] to ${power ? 'ON' : 'OFF'}[${power}] and ` +
       `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}]`);
 
     // Switch mode to stop only if all zones are off
     if (mode !== this.device.status.mode) { // only if mode is changed
       if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP && this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
         // mode is changed through group
-        this.platform.airzoneCloudApi.setGroupMode(this.device.installationId, this.device.groupId, mode).then(() => this.refresh());
+        this.platform.airzoneCloudApi.setGroupMode(this.device, mode).then(() => this.refresh());
       }
     }
     if (power !== this.device.status.power) { // only if power is changed
       this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power).then(() => this.refresh());
     }
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
   }
@@ -313,7 +676,7 @@ export class AirzoneCloudPlatformAccessory {
       this.device.installationId, this.device.id, this.device.status.mode, targetTemperature, targetUnits,
     ).then(() => this.refresh()); // HomeKit work with celsius
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ` +
       `${targetTemperature}º${TemperatureDisplayUnits[targetUnits].charAt(0)} in ${time}s`);
   }
@@ -326,7 +689,7 @@ export class AirzoneCloudPlatformAccessory {
 
     this.platform.airzoneCloudApi.setUnits(units).then(() => this.refresh());
 
-    const time = (Date.now().valueOf() - startTime)/1000;
+    const time = (Date.now().valueOf() - startTime) / 1000;
     this.platform.log.info(`${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +
       `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
   }
@@ -335,7 +698,7 @@ export class AirzoneCloudPlatformAccessory {
    * Gets target temperature name according to device mode
    */
   private getTargetTempertureName(mode?: DeviceMode): string {
-    switch(mode || this.device.status.mode) {
+    switch (mode || this.device.status.mode) {
       case DeviceMode.STOP:
         return 'setpoint_air_stop';
       case DeviceMode.FAN:
@@ -373,10 +736,10 @@ export class AirzoneCloudPlatformAccessory {
         status.units = user!.config.units || this.device.status.units;
         this.device.status = status;
 
-        const time = (Date.now().valueOf() - startTime)/1000;
+        const time = (Date.now().valueOf() - startTime) / 1000;
         this.platform.log.debug(`${this.device.name}: Finished refresh device statis in ${time}s`);
       }
-    } catch(error) {
+    } catch (error) {
       this.platform.log.debug(`${this.device.name}: Error on refresh device statis. ${error}`);
     }
   }

@@ -31,6 +31,12 @@ export enum SetpointAir {
   DRY = 'setpoint_air_dry',
 }
 
+export enum FanSpeed {
+  LOW = 2,
+  MEDIUM = 4,
+  HIGH = 6
+}
+
 /**
  * User
  */
@@ -113,6 +119,7 @@ export interface DeviceMeta {
 }
 
 export interface DeviceStatus {
+  speed_conf: FanSpeed;
   power: boolean;
   humidity: number;
   local_temp: Temperature;

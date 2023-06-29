@@ -1,7 +1,7 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { AirzoneCloudPlatformAccessory } from './platformAccessory';
+import { AirzoneCloudPlatformAccessory, AirzoneDrySwitchCloudPlatformAccessory, AirzoneFanSwitchCloudPlatformAccessory, AirzoneFanCloudPlatformAccessory } from './platformAccessory';
 import { AirzoneCloudPlatformAccessoryAirzone } from './platformAccessoryAirzone';
 import { AirzoneCloudPlatformAccessoryDaikin } from './platformAccessoryDaikin';
 
@@ -9,7 +9,7 @@ import { AirzoneCloudPlatformConfig } from './interface/config';
 import { AirzoneCloud, Zone } from './AirzoneCloud';
 import { AirzoneCloudDaikin, Device } from './AirzoneCloudDaikin';
 import { AirzoneCloudApi } from './AirzoneCloudApi';
-import { DeviceStatus } from './interface/airzonecloud';
+import { DeviceStatus, FanSpeed } from './interface/airzonecloud';
 
 /**
  * HomebridgePlatform
@@ -49,12 +49,12 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     this.log = new DebugLogger(_log);
 
     // We can't start without being configured.
-    if(!config) {
+    if (!config) {
       _log.error('No config defined.');
       return;
     }
 
-    if(!AirzoneCloudPlatformConfig.isValid(this)) {
+    if (!AirzoneCloudPlatformConfig.isValid(this)) {
       _log.error(`Invalid config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
       return;
     }
@@ -67,7 +67,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     this.log.debug(`config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
 
     // We need login credentials or we're not starting.
-    if(!(this.config as AirzoneCloudPlatformConfig).login.email || !(this.config as AirzoneCloudPlatformConfig).login.password) {
+    if (!(this.config as AirzoneCloudPlatformConfig).login.email || !(this.config as AirzoneCloudPlatformConfig).login.password) {
       this.log.error('No Airzone Cloud login credentials configured.');
       return;
     }
@@ -188,7 +188,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     for (const system of this.airzoneCloud.all_systems) {
       for (const zone of system.zones) {
         this.registerDevice({
-          id:zone.id,
+          id: zone.id,
           groupId: zone.system.id,
           installationId: zone.system.device.id,
           name: zone.name,
@@ -198,8 +198,8 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
           status: {
             // Only for type compatibility
             // eslint-disable-next-line max-len
-            power: false, humidity: 0, local_temp: {celsius: 0, fah: 0}, setpoint_air_stop: {celsius: 0, fah: 0}, setpoint_air_auto: {celsius: 0, fah: 0}, setpoint_air_cool: {celsius: 0, fah: 0}, setpoint_air_heat: {celsius: 0, fah: 0}, setpoint_air_vent: {celsius: 0, fah: 0}, setpoint_air_dry: {celsius: 0, fah: 0}, step: {celsius: 0, fah: 0}, mode: 0, mode_available: [],
-            units: 0, // 0:CELSIUS, 1:FAHRENHEIT
+            power: false, humidity: 0, local_temp: { celsius: 0, fah: 0 }, setpoint_air_stop: { celsius: 0, fah: 0 }, setpoint_air_auto: { celsius: 0, fah: 0 }, setpoint_air_cool: { celsius: 0, fah: 0 }, setpoint_air_heat: { celsius: 0, fah: 0 }, setpoint_air_vent: { celsius: 0, fah: 0 }, setpoint_air_dry: { celsius: 0, fah: 0 }, step: { celsius: 0, fah: 0 }, mode: 0, mode_available: [],
+            units: 0, speed_conf: FanSpeed.LOW // 0:CELSIUS, 1:FAHRENHEIT
           },
         }, zone);
       }
@@ -229,7 +229,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     // loop over the discovered devices and register each one if it has not already been registered
     for (const device of this.airzoneCloudDaikin.all_devices) {
       this.registerDevice({
-        id:device.id,
+        id: device.id,
         groupId: device.installation.id,
         installationId: device.installation.id,
         name: device.name,
@@ -239,8 +239,8 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
         status: {
           // Only for type compatibility
           // eslint-disable-next-line max-len
-          power: false, humidity: 0, local_temp: {celsius: 0, fah: 0}, setpoint_air_stop: {celsius: 0, fah: 0}, setpoint_air_auto: {celsius: 0, fah: 0}, setpoint_air_cool: {celsius: 0, fah: 0}, setpoint_air_heat: {celsius: 0, fah: 0}, setpoint_air_vent: {celsius: 0, fah: 0}, setpoint_air_dry: {celsius: 0, fah: 0}, step: {celsius: 0, fah: 0}, mode: 0, mode_available: [],
-          units: 0, // 0:CELSIUS, 1:FAHRENHEIT
+          power: false, humidity: 0, local_temp: { celsius: 0, fah: 0 }, setpoint_air_stop: { celsius: 0, fah: 0 }, setpoint_air_auto: { celsius: 0, fah: 0 }, setpoint_air_cool: { celsius: 0, fah: 0 }, setpoint_air_heat: { celsius: 0, fah: 0 }, setpoint_air_vent: { celsius: 0, fah: 0 }, setpoint_air_dry: { celsius: 0, fah: 0 }, step: { celsius: 0, fah: 0 }, mode: 0, mode_available: [],
+          units: 0, speed_conf: FanSpeed.LOW// 0:CELSIUS, 1:FAHRENHEIT
         },
       }, device);
     }
@@ -251,10 +251,16 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     // something globally unique, but constant, for example, the device serial
     // number or MAC address
     const uuid = this.api.hap.uuid.generate(device.id);
+    const fanUuid = this.api.hap.uuid.generate(device.id + "fan");
+    const fanSwitchUuid = this.api.hap.uuid.generate(device.id + "fan-switch");
+    const drySwitchUuid = this.api.hap.uuid.generate(device.id + "dry-switch");
 
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+    const existingFanAccessory = this.accessories.find(accessory => accessory.UUID === fanUuid);
+    const existingFanSwitchAccessory = this.accessories.find(accessory => accessory.UUID === fanSwitchUuid);
+    const existingDrySwitchAccessory = this.accessories.find(accessory => accessory.UUID === drySwitchUuid);
 
     if (existingAccessory) {
       // the accessory already exists
@@ -309,6 +315,117 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    }
+    if (existingFanAccessory) {
+      // the accessory already exists
+      if (device) {
+        this.log.info(`Restoring existing accessory from cache: ${existingFanAccessory.displayName} (UUID: ${existingFanAccessory.UUID})`);
+        // store a copy of the device object in the `accessory.context`
+        // the `context` property can be used to store any data about the accessory you may need
+        existingFanAccessory.context.device = device;
+        // create the accessory handler for the restored accessory
+        // this is imported from `platformAccessory.ts`
+        if (!zone) {
+          new AirzoneFanCloudPlatformAccessory(this, existingFanAccessory);
+        }
+        // update accessory cache with any changes to the accessory details and information
+        this.api.updatePlatformAccessories([existingFanAccessory]);
+      }
+      else if (!device) {
+        // remove platform accessories when no longer present
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingFanAccessory]);
+        this.log.info(`Removing existing accessory from cache: ${existingFanAccessory.displayName} (UUID: ${existingFanAccessory.UUID})`);
+      }
+    }
+    else {
+      // the accessory does not yet exist, so we need to create it
+      this.log.info(`Adding new accessory ${device.name} (UUID: ${fanUuid})`);
+      // create a new accessory
+      const fanAccessory = new this.api.platformAccessory(device.name, fanUuid, 8 /* Categories.SWITCH */);
+      // store a copy of the device object in the `accessory.context`
+      // the `context` property can be used to store any data about the accessory you may need
+      fanAccessory.context.device = device;
+      // create the accessory handler for the newly create accessory
+      // this is imported from `platformAccessory.ts`
+      if (!zone) {
+        new AirzoneFanCloudPlatformAccessory(this, fanAccessory);
+      }
+      // link the accessory to your platform
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [fanAccessory]);
+    }
+    if (existingFanSwitchAccessory) {
+      // the accessory already exists
+      if (device) {
+        this.log.info(`Restoring existing accessory from cache: ${existingFanSwitchAccessory.displayName} (UUID: ${existingFanSwitchAccessory.UUID})`);
+        // store a copy of the device object in the `accessory.context`
+        // the `context` property can be used to store any data about the accessory you may need
+        existingFanSwitchAccessory.context.device = device;
+        // create the accessory handler for the restored accessory
+        // this is imported from `platformAccessory.ts`
+        if (!zone) {
+          new AirzoneFanSwitchCloudPlatformAccessory(this, existingFanSwitchAccessory);
+        }
+        // update accessory cache with any changes to the accessory details and information
+        this.api.updatePlatformAccessories([existingFanSwitchAccessory]);
+      }
+      else if (!device) {
+        // remove platform accessories when no longer present
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingFanSwitchAccessory]);
+        this.log.info(`Removing existing accessory from cache: ${existingFanSwitchAccessory.displayName} (UUID: ${existingFanSwitchAccessory.UUID})`);
+      }
+    }
+    else {
+      // the accessory does not yet exist, so we need to create it
+      this.log.info(`Adding new accessory ${device.name} (UUID: ${fanSwitchUuid})`);
+      // create a new accessory
+      const fanSwitchAccessory = new this.api.platformAccessory(device.name, fanSwitchUuid, 8 /* Categories.SWITCH */);
+      // store a copy of the device object in the `accessory.context`
+      // the `context` property can be used to store any data about the accessory you may need
+      fanSwitchAccessory.context.device = device;
+      // create the accessory handler for the newly create accessory
+      // this is imported from `platformAccessory.ts`
+      if (!zone) {
+        new AirzoneFanSwitchCloudPlatformAccessory(this, fanSwitchAccessory);
+      }
+      // link the accessory to your platform
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [fanSwitchAccessory]);
+    }
+    if (existingDrySwitchAccessory) {
+      // the accessory already exists
+      if (device) {
+        this.log.info(`Restoring existing accessory from cache: ${existingDrySwitchAccessory.displayName} (UUID: ${existingDrySwitchAccessory.UUID})`);
+        // store a copy of the device object in the `accessory.context`
+        // the `context` property can be used to store any data about the accessory you may need
+        existingDrySwitchAccessory.context.device = device;
+        // create the accessory handler for the restored accessory
+        // this is imported from `platformAccessory.ts`
+        if (!zone) {
+          new AirzoneDrySwitchCloudPlatformAccessory(this, existingDrySwitchAccessory);
+        }
+        // update accessory cache with any changes to the accessory details and information
+        this.api.updatePlatformAccessories([existingDrySwitchAccessory]);
+      }
+      else if (!device) {
+        // remove platform accessories when no longer present
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingDrySwitchAccessory]);
+        this.log.info(`Removing existing accessory from cache: ${existingDrySwitchAccessory.displayName} (UUID: ${existingDrySwitchAccessory.UUID})`);
+      }
+    }
+    else {
+      // the accessory does not yet exist, so we need to create it
+      this.log.info(`Adding new accessory ${device.name} (UUID: ${drySwitchUuid})`);
+      // create a new accessory
+      const drySwitchAccessory = new this.api.platformAccessory(device.name, drySwitchUuid, 8 /* Categories.SWITCH */);
+      // store a copy of the device object in the `accessory.context`
+      // the `context` property can be used to store any data about the accessory you may need
+      drySwitchAccessory.context.device = device;
+      // create the accessory handler for the newly create accessory
+      // this is imported from `platformAccessory.ts`
+      if (!zone) {
+        new AirzoneDrySwitchCloudPlatformAccessory(this, drySwitchAccessory);
+      }
+      // link the accessory to your platform
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [drySwitchAccessory]);
     }
   }
 }

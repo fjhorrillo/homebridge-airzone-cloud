@@ -2,7 +2,7 @@
  * AirzoneCloud: represent the AirzoneCloud API.
  */
 
-import { AirzoneCloudHomebridgePlatform } from './platform';
+import { AirzoneCloudHomebridgePlatform, DeviceType } from './platform';
 
 import fetch from 'node-fetch';
 import { AirzoneCloudSocket } from './AirzoneCloudSocket';
@@ -110,12 +110,12 @@ export class AirzoneCloudApi {
   }
 
   /* Do a http GET request on an api endpoint */
-  private async _get(api_endpoint: string, params={}) {
+  private async _get(api_endpoint: string, params = {}) {
     return await this._request(HTTPMethod.GET, api_endpoint, params);
   }
 
   /* Do a http POST request on an api endpoint */
-  private async _post(api_endpoint: string, payload={}) {
+  private async _post(api_endpoint: string, payload = {}) {
     const headers = {
       'X-Requested-With': 'XMLHttpRequest',
       'Content-Type': 'application/json;charset=utf-8',
@@ -126,7 +126,7 @@ export class AirzoneCloudApi {
   }
 
   /* Do a http PATCH request on an api endpoint */
-  private async _patch(api_endpoint: string, payload={}) {
+  private async _patch(api_endpoint: string, payload = {}) {
     const headers = {
       'X-Requested-With': 'XMLHttpRequest',
       'Content-Type': 'application/json;charset=utf-8',
@@ -137,7 +137,7 @@ export class AirzoneCloudApi {
   }
 
   /* Do a http PUT request on an api endpoint */
-  private async _put(api_endpoint: string, payload={}) {
+  private async _put(api_endpoint: string, payload = {}) {
     const headers = {
       'X-Requested-With': 'XMLHttpRequest',
       'Content-Type': 'application/json;charset=utf-8',
@@ -148,8 +148,8 @@ export class AirzoneCloudApi {
   }
 
   /* Do a http request on an api endpoint */
-  private async _request(method: string, api_endpoint: string, params={}, headers={}, json?) {
-    const url = new URL(`${api_endpoint}${Object.keys(params).length > 0?`/?${new URLSearchParams(params)}`:''}`, this._base_url);
+  private async _request(method: string, api_endpoint: string, params = {}, headers = {}, json?) {
+    const url = new URL(`${api_endpoint}${Object.keys(params).length > 0 ? `/?${new URLSearchParams(params)}` : ''}`, this._base_url);
 
     // set body length
     if (json) {
@@ -175,7 +175,7 @@ export class AirzoneCloudApi {
       body: json,
     };
     this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
-      `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
+      `${json ? ` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}` : ''}\x1b[0m`);
     const response = await fetch(options.url.toString(), options);
     if (response && response.ok) {
       if (response.status !== 204) {
@@ -193,10 +193,10 @@ export class AirzoneCloudApi {
     } else {
       const data = await response.json() as Error;
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
-        `${response.status === 400?` Response: ${JSON.stringify(data)}`:''}`);
+        `${response.status === 400 ? ` Response: ${JSON.stringify(data)}` : ''}`);
       this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)} for \x1b[0m` +
         `\x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
-        `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
+        `${json ? ` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}` : ''}\x1b[0m`);
       throw new Error(data.msg);
     }
   }
@@ -295,7 +295,7 @@ export class AirzoneCloudApi {
     const params = {
       'installation_id': installationId,
     };
-    if(devices) {
+    if (devices) {
       params['devices'] = 1;
     }
 
@@ -322,7 +322,7 @@ export class AirzoneCloudApi {
     const params = {
       'installation_id': installationId,
     };
-    if(type) {
+    if (type) {
       params['type'] = type;
     }
 
@@ -383,6 +383,10 @@ export class AirzoneCloudApi {
       'installation_id': installationId,
     };
 
+    // need to sleep so that the thermostate can retrieve commands
+    // this is needed when doing things quickly like automations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     try {
       return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
     } catch (error) {
@@ -398,6 +402,10 @@ export class AirzoneCloudApi {
       'installation_id': installationId,
     };
 
+    // need to sleep so that the thermostate can retrieve commands
+    // this is needed when doing things quickly like automations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     try {
       return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
     } catch (error) {
@@ -406,32 +414,78 @@ export class AirzoneCloudApi {
     }
   }
 
-  public async setGroupMode(installationId: string, groupId: string, mode: DeviceMode) {
+  public async setGroupMode(device: DeviceType, mode: DeviceMode) {
+    // if the mode we want to set is not in the available modes we need to change all
+    // units to the target mode. This can happen when the device we want to change is
+    // not the master
+    if (!device.status.mode_available.includes(mode)) {
+      // change all units to the target mode
+      await this.setSiteMode(device, mode);
+    }
+
     const payload = {
       'params': {
         'mode': mode.valueOf(),
       },
     };
 
+    // need to sleep so that the thermostate can retrieve commands
+    // this is needed when doing things quickly like automations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     try {
-      return await this._put(`${API_INSTALLATIONS}/${installationId}/group/${groupId}`, payload);
+      return await this._put(`${API_INSTALLATIONS}/${device.installationId}/group/${device.groupId}`, payload);
     } catch (error) {
       this.platform.log.error(`Error in setGroupMode. ${error}`);
       //throw new Error('Error in setGroupMode');
     }
   }
 
-  public async setTemperature(installationId: string, deviceId: string, mode: DeviceMode, temperature: number, units: Units) {
+  public async setSiteMode(device: DeviceType, mode: DeviceMode) {
+    // sets the mode for all devices in a site
     const payload = {
-      'param': (function(mode: DeviceMode): string {
+      'params': {
+        'mode': mode.valueOf(),
+      },
+    };
+
+    // need to sleep so that the thermostate can retrieve commands
+    // this is needed when doing things quickly like automations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    try {
+      return await this._put(`${API_INSTALLATIONS}/${device.installationId}`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setSiteMode. ${error}`);
+    }
+  }
+
+  public async setTemperature(installationId: string, deviceId: string, mode: DeviceMode, temperature: number, units: Units) {
+    /*
+    If the device is in these modes then the temp can't be set to that mode (eg. setpoint_air_vent)
+    or else it will throw an error. This can happen if a homekit automation is running and the device
+    is going from Fan mode to Cool mode and also setting the target temperature. The temperature might
+    be set before the device is swtiched over to Cooling mode. There's no perect way to take care of
+    this because we don't know what state the device might be going into, so the safest
+    thing is to set both the heat and cool temp.
+    */
+    if (mode === DeviceMode.DRY ||
+      mode === DeviceMode.FAN ||
+      mode === DeviceMode.STOP) {
+      await this.setTemperature(
+        installationId, deviceId, DeviceMode.COOLING, temperature, units,
+      );
+      await this.setTemperature(
+        installationId, deviceId, DeviceMode.HEATING, temperature, units,
+      );
+    }
+    const payload = {
+      'param': (function (mode: DeviceMode): string {
         switch (mode) {
-          case DeviceMode.STOP: return SetpointAir.STOP;
           case DeviceMode.AUTO: return SetpointAir.AUTO;
           case DeviceMode.COOLING: return SetpointAir.COOL;
           case DeviceMode.HEATING: return SetpointAir.HEAT;
-          case DeviceMode.FAN: return SetpointAir.VENT;
-          case DeviceMode.DRY: return SetpointAir.DRY;
-          default: return SetpointAir.STOP;
+          default: return SetpointAir.AUTO;
         }
       })(mode),
       'value': temperature,
@@ -440,6 +494,10 @@ export class AirzoneCloudApi {
         'units': units,
       },
     };
+
+    // need to sleep so that the thermostate can retrieve commands
+    // this is needed when doing things quickly like automations
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
       return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
@@ -451,6 +509,19 @@ export class AirzoneCloudApi {
 
   public allOtherOff(deviceId: string): boolean {
     return this._airzoneCloudSocket.allOtherOff(deviceId);
+  }
+
+  async setFanSpeed(installationId, deviceId, speed) {
+    const payload = {
+      'param': 'speed_conf',
+      'value': speed,
+      'installation_id': installationId,
+    };
+    try {
+      return await this._patch(`${API_DEVICES}/${deviceId}`, payload);
+    } catch (error) {
+      this.platform.log.error(`Error in setFanSpeed. ${error}`);
+    }
   }
 
 }
