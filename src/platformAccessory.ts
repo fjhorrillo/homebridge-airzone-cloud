@@ -1,6 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
 import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger } from './platform';
+import { AirzoneCloudPlatformConfig } from './interface/config';
 import { DeviceMode, Units } from './interface/airzonecloud';
 
 /**
@@ -222,7 +223,7 @@ export class AirzoneCloudPlatformAccessory {
     const startTime = Date.now().valueOf();
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     await this.refresh();
-    const setpointTemperature = (this.device.status.power && this.device.status.hasOwnProperty(this.getTargetTempertureName())) ?
+    const setpointTemperature = (this.device.status.power && this.device.status[this.getTargetTempertureName()]) ?
       this.device.status[this.getTargetTempertureName()] : this.device.status.setpoint_air_stop || this.device.status.setpoint_air_auto;
     const targetTemperature = this.device.status.units ? setpointTemperature.fah : setpointTemperature.celsius;
 
@@ -283,11 +284,14 @@ export class AirzoneCloudPlatformAccessory {
     this.platform.log.debug(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
       `Power from ${this.device.status.power?'ON':'OFF'}[${this.device.status.power}] to ${power?'ON':'OFF'}[${power}] and ` +
-      `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}]`);
+      `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}] ` +
+      `with AutoOff[${(this.platform.config as AirzoneCloudPlatformConfig).auto_off}]`);
 
     // Switch mode to stop only if all zones are off
     if (mode !== this.device.status.mode) { // only if mode is changed
-      if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP && this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
+      if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP &&
+        (this.platform.config as AirzoneCloudPlatformConfig).auto_off &&
+        this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
         // mode is changed through group
         this.platform.airzoneCloudApi.setGroupMode(this.device.installationId, this.device.groupId, mode).then(() => this.refresh());
       }

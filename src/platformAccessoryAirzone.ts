@@ -2,6 +2,7 @@ import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallb
 import { Zone } from './AirzoneCloud';
 
 import { AirzoneCloudHomebridgePlatform } from './platform';
+import { AirzoneCloudPlatformConfig } from './interface/config';
 
 /**
  * Platform Accessory
@@ -161,6 +162,7 @@ export class AirzoneCloudPlatformAccessoryAirzone {
     await this.zone.refresh();
     const system = this.zone.system;
     let allOtherOff: boolean;
+    const autoOff = (this.platform.config as AirzoneCloudPlatformConfig).auto_off;
 
     // TargetHeatingCoolingState => 0:OFF, 1:HEAT, 2:COOL, 3:AUTO
     let targetHeatingCoolingState = 'stop';
@@ -173,7 +175,7 @@ export class AirzoneCloudPlatformAccessoryAirzone {
             allOtherOff &&= !zone.is_on;
           }
         }
-        targetHeatingCoolingState = allOtherOff ? 'stop' : system.mode;
+        targetHeatingCoolingState = autoOff && allOtherOff ? 'stop' : system.mode;
         await this.zone.turn_off();
         break;
       case 1: // HEAT

@@ -51,6 +51,12 @@
         "type": "boolean",
         "default": false
       },
+      "auto_off": {
+        "title": "Auto Off",
+        "description": "Enables to stop the system after go off the last zone on.",
+        "type": "boolean",
+        "default": true
+      },
       "user_agent": {
         "title": "User Agent",
         "description": "Allow to change default user agent if set.",
@@ -109,6 +115,7 @@
       "description": "Don't change these, unless you understand what you're doing.",
       "items": [
         "debug",
+        "auto_off",
         "user_agent",
         "custom_base_url"
       ]
