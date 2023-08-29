@@ -68,7 +68,7 @@ export class AirzoneDrySwitchCloudPlatformAccessory {
   async getDrySwitchState() {
     const startTime = Date.now().valueOf();
     // currentDryState => false:OFF, true:ON
-    await this.refresh();
+    // await this.refresh();
     const currentDryState = this.device.status.power ? (function (mode) {
       switch (mode) {
         case DeviceMode.DRY:
@@ -88,7 +88,7 @@ export class AirzoneDrySwitchCloudPlatformAccessory {
    */
   async setDrySwitchState(value) {
     const startTime = Date.now().valueOf();
-    await this.refresh();
+    // await this.refresh();
     // targetDryState => false:OFF, true:ON
     const targetDryState = value;
     // transform
@@ -184,7 +184,7 @@ export class AirzoneFanSwitchCloudPlatformAccessory {
   async getFanSwitchState() {
     const startTime = Date.now().valueOf();
     // currentFanState => false:OFF, true:ON
-    await this.refresh();
+    // await this.refresh();
     const currentFanState = this.device.status.power ? (function (mode) {
       switch (mode) {
         case DeviceMode.FAN:
@@ -204,7 +204,7 @@ export class AirzoneFanSwitchCloudPlatformAccessory {
    */
   async setFanSwitchState(value) {
     const startTime = Date.now().valueOf();
-    await this.refresh();
+    // await this.refresh();
     // targetFanState => false:OFF, true:ON
     const targetFanState = value;
     // transform
@@ -306,7 +306,7 @@ export class AirzoneFanCloudPlatformAccessory {
      */
   async getCurrentRotationSpeed() {
     const startTime = Date.now().valueOf();
-    await this.refresh();
+    // await this.refresh();
     let currentRotationSpeed = (function (speed_conf) {
       switch (speed_conf) {
         case FanSpeed.LOW:
@@ -334,7 +334,7 @@ export class AirzoneFanCloudPlatformAccessory {
    */
   async setTargetRotationSpeed(value) {
     const startTime = Date.now().valueOf();
-    await this.refresh();
+    // await this.refresh();
     // setting the fan speed in dry mode will throw an error
     if (this.device.status.mode === DeviceMode.DRY) {
       return;
@@ -599,7 +599,7 @@ export class AirzoneCloudPlatformAccessory {
   async getTemperatureDisplayUnits(): Promise<CharacteristicValue> {
     const startTime = Date.now().valueOf();
     // TemperatureDisplayUnits => 0:CELSIUS, 1:FAHRENHEIT
-    await this.refresh();
+    // await this.refresh();
     const temperatureDisplayUnits = this.device.status.units as number as TemperatureDisplayUnits;
 
     const time = (Date.now().valueOf() - startTime) / 1000;
@@ -612,7 +612,7 @@ export class AirzoneCloudPlatformAccessory {
   async getCurrentRelativeHumidity(): Promise<CharacteristicValue> { // Update is async by websocket
     const startTime = Date.now().valueOf();
     // CurrentRelativeHumidity => Min Value 0, Max Value 100, Min Step 1
-    await this.refresh();
+    // await this.refresh();
     const currentRelativeHumidity = this.device.status.humidity;
 
     const time = (Date.now().valueOf() - startTime) / 1000;
