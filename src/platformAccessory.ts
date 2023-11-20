@@ -1,6 +1,6 @@
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { Service, PlatformAccessory, CharacteristicValue, LogLevel } from 'homebridge';
 
-import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger } from './platform';
+import { AirzoneCloudHomebridgePlatform, DeviceType, DebugLogger, LogType } from './platform';
 import { AirzoneCloudPlatformConfig } from './interface/config';
 import { DeviceMode, Units } from './interface/airzonecloud';
 
@@ -62,12 +62,12 @@ export class AirzoneCloudPlatformAccessory {
     const targetHeatingCoolingState = this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
       .onSet(this.setTargetHeatingCoolingState.bind(this))   // SET - bind to the `setTargetHeatingCoolingState` method below
       .onGet(this.getTargetHeatingCoolingState.bind(this));  // GET - bind to the `getTargetHeatingCoolingState` method below
-    targetHeatingCoolingState.props.validValues = this.device.status.mode_available.includes(DeviceMode.AUTO) ?
+    targetHeatingCoolingState.props.validValues = this.device.status.mode_available?.includes(DeviceMode.AUTO) ?
       [HeatingCoolingState.OFF, HeatingCoolingState.HEAT, HeatingCoolingState.COOL, HeatingCoolingState.AUTO] :
       [HeatingCoolingState.OFF, HeatingCoolingState.HEAT, HeatingCoolingState.COOL];
 
-    this.platform.log.debug(`\x1b[90m${this.device.name}: Mode available -> ${JSON.stringify(this.device.status.mode_available)}` +
-      `, Valid values -> ${JSON.stringify(targetHeatingCoolingState.props.validValues)}\x1b[0m`);
+    this.platform.log.debug(`${this.device.name}: Mode available -> ${JSON.stringify(this.device.status.mode_available)}` +
+      `, Valid values -> ${JSON.stringify(targetHeatingCoolingState.props.validValues)}`);
 
     // register handlers for the CurrentTemperature Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -110,9 +110,10 @@ export class AirzoneCloudPlatformAccessory {
     /**
      * Here we trace the device status every 10 seconds
      */
-    if (DebugLogger.isDebugEnabled()) {
+    if (DebugLogger.isDebugEnabled(LogType.STATUS)) {
       setInterval(() => {
-        this.platform.log.debug(`${this.device.name}: Status -> ${JSON.stringify(this.device.status)}`);
+        this.platform.log.logFormatted(LogType.STATUS, LogLevel.DEBUG,
+          `${this.device.name}: Status -> ${JSON.stringify(this.device.status)}`);
       }, 10000);
     }
   }
@@ -165,8 +166,8 @@ export class AirzoneCloudPlatformAccessory {
     })(this.device.status.mode) : HeatingCoolingState.OFF;
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
-    `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}] in ${time}s`);
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic CurrentHeatingCoolingState -> ` +
+      `${HeatingCoolingState[currentHeatingCoolingState]}[${currentHeatingCoolingState}] in ${time}s`);
 
     return currentHeatingCoolingState;
   }
@@ -200,8 +201,8 @@ export class AirzoneCloudPlatformAccessory {
     })(this.device.status.mode) : HeatingCoolingState.OFF;
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.debug(`${this.device.name}: Get Characteristic TargetHeatingCoolingState -> ` +
-    `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic TargetHeatingCoolingState -> ` +
+      `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
 
     return targetHeatingCoolingState;
   }
@@ -213,7 +214,7 @@ export class AirzoneCloudPlatformAccessory {
     const currentTemperature = this.device.status.units ? this.device.status.local_temp.fah : this.device.status.local_temp.celsius;
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentTemperature -> ` +
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic CurrentTemperature -> ` +
       `${currentTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
     return this.device.status.local_temp.celsius; // HomeKit work with celsius
@@ -228,8 +229,8 @@ export class AirzoneCloudPlatformAccessory {
     const targetTemperature = this.device.status.units ? setpointTemperature.fah : setpointTemperature.celsius;
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.debug(`${this.device.name}: Get Characteristic TargetTemperature -> ` +
-    `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic TargetTemperature -> ` +
+      `${targetTemperature}º${TemperatureDisplayUnits[this.device.status.units].charAt(0)} in ${time}s`);
 
     return setpointTemperature.celsius; // HomeKit work with celsius
   }
@@ -241,7 +242,7 @@ export class AirzoneCloudPlatformAccessory {
     const temperatureDisplayUnits = this.device.status.units as number as TemperatureDisplayUnits;
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.debug(`${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic TemperatureDisplayUnits -> ` +
       `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
 
     return temperatureDisplayUnits;
@@ -254,7 +255,7 @@ export class AirzoneCloudPlatformAccessory {
     const currentRelativeHumidity = this.device.status.humidity;
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.debug(`${this.device.name}: Get Characteristic CurrentRelativeHumidity -> ` +
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic CurrentRelativeHumidity -> ` +
       `${currentRelativeHumidity}% in (${time}s`);
 
     return currentRelativeHumidity;
@@ -281,7 +282,7 @@ export class AirzoneCloudPlatformAccessory {
     })(targetHeatingCoolingState);
     const power = mode !== DeviceMode.STOP;
 
-    this.platform.log.debug(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
       `Power from ${this.device.status.power?'ON':'OFF'}[${this.device.status.power}] to ${power?'ON':'OFF'}[${power}] and ` +
       `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}] ` +
@@ -301,7 +302,7 @@ export class AirzoneCloudPlatformAccessory {
     }
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.info(`${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
       `${HeatingCoolingState[targetHeatingCoolingState]}[${targetHeatingCoolingState}] in ${time}s`);
   }
 
@@ -310,7 +311,8 @@ export class AirzoneCloudPlatformAccessory {
     // TargetTemperature => Min Value 10, Max Value 38, Min Step 0.1
     // HomeKit works with celsius so it will transform to fahrenheit if necessary
     const targetUnits = this.device.status.units;
-    this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ${value} ${targetUnits}`);
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TargetTemperature -> ` +
+      `${value} ${targetUnits}`);
     const targetTemperature = (targetUnits === Units.FARENHEIT) ? Math.round(((value as number * 9 / 5) + 32) * 10) / 10 : value as number;
 
     this.platform.airzoneCloudApi.setTemperature(
@@ -318,7 +320,7 @@ export class AirzoneCloudPlatformAccessory {
     ).then(() => this.refresh()); // HomeKit work with celsius
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.info(`${this.device.name}: Set Characteristic TargetTemperature -> ` +
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TargetTemperature -> ` +
       `${targetTemperature}º${TemperatureDisplayUnits[targetUnits].charAt(0)} in ${time}s`);
   }
 
@@ -331,7 +333,7 @@ export class AirzoneCloudPlatformAccessory {
     this.platform.airzoneCloudApi.setUnits(units).then(() => this.refresh());
 
     const time = (Date.now().valueOf() - startTime)/1000;
-    this.platform.log.info(`${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +
       `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
   }
 

@@ -2,11 +2,12 @@
  * AirzoneCloud: represent the AirzoneCloud Socket.
  */
 
-import { AirzoneCloudHomebridgePlatform } from './platform';
+import { AirzoneCloudHomebridgePlatform, LogType } from './platform';
 
 import { io, Socket } from 'socket.io-client';
 
 import { API_WEBSOCKETS } from './constants';
+import { LogLevel } from 'homebridge';
 
 /* Allow to connect to AirzoneCloud Socket */
 export class AirzoneCloudSocket {
@@ -48,11 +49,11 @@ export class AirzoneCloudSocket {
     await this.clearListeners();
     this.listeningInstallationId = installationId;
     return new Promise ((resolve, reject) => {
-      this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_installation", "${installationId}"]\x1b[0m`);
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', `["listen_installation", "${installationId}"]`);
       this.userSocket.emit('listen_installation', installationId, async data => {
         // data is the response callback, it will be null if everything went well or an error in another case
         if (data !== null) {
-          this.platform.log.error(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
           switch(data._id) {
             case 'tooManyConnections':
               this.platform.log.error('Error in listenInstallation');
@@ -75,7 +76,7 @@ export class AirzoneCloudSocket {
           }
         } else {
           AirzoneCloudSocket.reconnectAttemps = 0; // If no error is obtained, the attempt counter is reset
-          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
         }
         await new Promise<boolean>(resolver => this.listenFinished = resolver);
         this.platform.log.info('The installation status was fully received');
@@ -89,11 +90,11 @@ export class AirzoneCloudSocket {
     await this.clearListeners();
     this.listeningWebserverId = webserverId;
     return new Promise ((resolve, reject) => {
-      this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["listen_ws", "${webserverId}"]\x1b[0m`);
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', `["listen_ws", "${webserverId}"]`);
       this.userSocket.emit('listen_ws', webserverId, async data => {
         // data is the response callback, it will be null if everything went well or an error in another case
         if (data !== null) {
-          this.platform.log.error(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m${JSON.stringify(data)}\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, '\x1b[31m⬇\x1b[0m', `${JSON.stringify(data)}`);
           switch(data._id) {
             case 'tooManyConnections':
               return reject(new Error('tooManyConnections'));
@@ -114,7 +115,7 @@ export class AirzoneCloudSocket {
           }
         } else {
           AirzoneCloudSocket.reconnectAttemps = 0; // If no error is obtained, the attempt counter is reset
-          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
         }
         return resolve(true);
       });
@@ -124,10 +125,10 @@ export class AirzoneCloudSocket {
   /* Stop listening for events from an installation (free socket traffic) */
   public async clearListeners(refresh = false) {
     return new Promise ((resolve, reject) => {
-      this.platform.log.debug('\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["clear_listeners"]\x1b[0m');
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', '["clear_listeners"]');
       this.userSocket.emit('clear_listeners', data => {
         if(data !== null) {
-          this.platform.log.error(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
           return reject(new Error(`Error sending 'clear_listeners' message. ${JSON.stringify(data)}`));
         } else {
           if (!refresh) {
@@ -135,7 +136,7 @@ export class AirzoneCloudSocket {
             this.listeningInstallationId = undefined;
             this.listeningWebserverId = undefined;
           }
-          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m[${JSON.stringify(data)}]\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
         }
         return resolve(true);
       });
@@ -173,10 +174,10 @@ export class AirzoneCloudSocket {
       this._connect(jwt);
       // register a catch-all listener
       this.userSocket.onAny(async (event, ...args) => {
-        this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33m${args?JSON.stringify([event].concat(args.filter(
-          (arg)=> {
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m',
+          `${args?JSON.stringify([event].concat(args.filter((arg)=> {
             return !(arg instanceof Function);
-          }))):[event]}\x1b[0m`);
+          }))):[event]}`);
 
         // event data
         const eventProps = typeof event === 'string' ? event.split('.') : [];
@@ -261,7 +262,7 @@ export class AirzoneCloudSocket {
 
       this.userSocket.on('auth', async (event, callback) => {
         if(event === 'authenticate') {
-          this.platform.log.debug(`\x1b[35m[Websocket]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33m["${this.jwt}"]\x1b[0m`);
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', `["${this.jwt}"]`);
           callback(this.jwt);
         }
         this.platform.log.debug('authenticate event, replied with a valid token');

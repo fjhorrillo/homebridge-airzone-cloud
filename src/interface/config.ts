@@ -6,6 +6,16 @@ interface User {
     password: string;
 }
 
+interface Debug {
+  general: boolean;
+  time: boolean;
+  gets: boolean;
+  sets: boolean;
+  fetch: boolean;
+  websocket: boolean;
+  status: boolean;
+}
+
 export interface AirzoneCloudPlatformConfig extends PlatformConfig {
   platform: AccessoryName | AccessoryIdentifier;
   name?: string;
@@ -13,10 +23,27 @@ export interface AirzoneCloudPlatformConfig extends PlatformConfig {
   // Added properties
   system: string;
   login: User;
-  debug: boolean;
+  debug: Debug;
   auto_off: boolean;
   user_agent: string;
   custom_base_url: string;
+}
+
+function evaluateAll(platform: AirzoneCloudHomebridgePlatform, types: string[], key: string, value?: unknown): boolean {
+  let result = false;
+
+  if (value === undefined) {
+    platform.log.error(`Missing ${key} in Config.`);
+    return false;
+  }
+  types.forEach(type => {
+    result = result || typeof(value) === type;
+  });
+
+  if (!result) {
+    platform.log.error(`Config ${key} has invalid value: ${value}. Expected one of ${types}, got ${typeof(value)}.`);
+  }
+  return result;
 }
 
 function evaluate(platform: AirzoneCloudHomebridgePlatform, type: string, key: string, value?: unknown): boolean {
@@ -39,7 +66,7 @@ export class AirzoneCloudPlatformConfig implements PlatformConfig {
   public static isValid(platform: AirzoneCloudHomebridgePlatform): boolean {
     const cast = platform.config as AirzoneCloudPlatformConfig;
 
-    const validDebug = evaluate(platform, 'boolean', 'debug', cast.debug);
+    const validDebug = evaluateAll(platform, ['boolean', 'object'], 'debug', cast.debug);
     const validAutoOff = evaluate(platform, 'boolean', 'auto_off', cast.auto_off);
     const validUserAgent = evaluate(platform, 'string', 'user_agent', cast.user_agent);
     const validSystem = evaluate(platform, 'string', 'system', cast.system);

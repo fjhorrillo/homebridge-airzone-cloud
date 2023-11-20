@@ -1,4 +1,5 @@
-import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
+import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories, LogLevel }
+  from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { AirzoneCloudPlatformAccessory } from './platformAccessory';
@@ -46,7 +47,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     public readonly api: API,
   ) {
     // Initialize logger
-    this.log = new DebugLogger(_log);
+    this.log = new DebugLogger(_log, (this.config as AirzoneCloudPlatformConfig).debug);
 
     // We can't start without being configured.
     if(!config) {
@@ -57,11 +58,6 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
     if(!AirzoneCloudPlatformConfig.isValid(this)) {
       _log.error(`Invalid config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
       return;
-    }
-
-    // Init debug logger
-    if ((this.config as AirzoneCloudPlatformConfig).debug) {
-      DebugLogger.setDebugEnabled(true);
     }
 
     this.log.debug(`config.json: ${AirzoneCloudPlatformConfig.toString(this)}`);
@@ -314,14 +310,28 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
 }
 
 /**
+ * Messages with this type are only displayed if explicitly enabled.
+ */
+export declare const enum LogType {
+  GENERAL = 'general',
+  TIME = 'time',
+  SETS = 'sets',
+  GETS = 'gets',
+  FETCH = 'fetch',
+  WEBSOCKET = 'websocket',
+  STATUS = 'status'
+}
+
+/**
  * DebugLogger
  * Extend loging to manage debug mode
  */
 export class DebugLogger implements Logger {
   private static debugEnabled;
 
-  constructor(private readonly _log: Logger) {
-    this.debug('Debug mode on');
+  constructor(private readonly _log: Logger, debug) {
+    DebugLogger.setDebugEnabled(debug);
+    this.debug(`Debug mode on: ${JSON.stringify(debug)}`);
   }
 
   info(message: string, ...parameters: unknown[]): void {
@@ -337,8 +347,8 @@ export class DebugLogger implements Logger {
   }
 
   debug(message: string, ...parameters: unknown[]): void {
-    if (DebugLogger.debugEnabled) {
-      this.log('info', `\x1b[90m${message}\x1b[0m`, ...parameters);
+    if (DebugLogger.isDebugEnabled(LogType.GENERAL)) {
+      this.logFormatted(LogType.GENERAL, LogLevel.INFO, message, ...parameters);
     } else {
       this._log.debug(message, ...parameters);
     }
@@ -350,6 +360,49 @@ export class DebugLogger implements Logger {
 
   log(level, message: string, ...parameters: unknown[]): void {
     this._log.log(level, message, ...parameters);
+  }
+
+  logFormatted(type: LogType, level: LogLevel, message: string, ...parameters: unknown[]): void {
+    switch (type) { // PREFIX
+      case LogType.GENERAL:
+      case LogType.TIME:
+        message = `\x1b[90m${message}\x1b[0m`;
+        break;
+      case LogType.SETS:
+        message = `\x1b[32m[Sets]\x1b[0m \x1b[90m${message}\x1b[0m`;
+        break;
+      case LogType.GETS:
+        message = `\x1b[31m[Gets]\x1b[0m \x1b[90m${message}\x1b[0m`;
+        break;
+      case LogType.FETCH:
+        message = `\x1b[34m[Fetch]\x1b[0m \x1b[33m${message}\x1b[0m`;
+        break;
+      case LogType.WEBSOCKET:
+        message = `\x1b[35m[Websocket]\x1b[0m \x1b[33m${message}\x1b[0m`;
+        break;
+      case LogType.STATUS:
+        message = `\x1b[36m[Status]\x1b[0m \x1b[33m${message}\x1b[0m`;
+        break;
+    }
+    switch (type) { // LINE
+      case LogType.GENERAL:
+      case LogType.TIME:
+      case LogType.SETS:
+      case LogType.GETS:
+        Object.keys(parameters).forEach(id => parameters[id] = `\x1b[90m${parameters[id]}\x1b[0m`);
+        break;
+      case LogType.FETCH:
+      case LogType.WEBSOCKET:
+      case LogType.STATUS:
+        Object.keys(parameters).forEach(id => parameters[id] = `\x1b[33m${parameters[id]}\x1b[0m`);
+        break;
+    }
+
+    if (DebugLogger.isDebugEnabled(type)) {
+      this._log.log(LogLevel.INFO, message, ...parameters);
+    } else {
+      this._log.log(level, message, ...parameters);
+    }
   }
 
   get prefix(): string | undefined {
@@ -365,8 +418,26 @@ export class DebugLogger implements Logger {
     DebugLogger.debugEnabled = enabled;
   }
 
-  static isDebugEnabled() {
-    return DebugLogger.debugEnabled;
+  static isDebugEnabled(type: LogType = LogType.GENERAL) {
+    if (typeof(DebugLogger.debugEnabled) === 'object') {
+      switch (type) {
+        case LogType.TIME:
+          return DebugLogger.debugEnabled.time || false;
+        case LogType.SETS:
+          return DebugLogger.debugEnabled.sets || true;
+        case LogType.GETS:
+          return DebugLogger.debugEnabled.gets || false;
+        case LogType.FETCH:
+          return DebugLogger.debugEnabled.fetch || false;
+        case LogType.WEBSOCKET:
+          return DebugLogger.debugEnabled.websocket || false;
+        case LogType.STATUS:
+          return DebugLogger.debugEnabled.status || false;
+        case LogType.GENERAL:
+          return DebugLogger.debugEnabled.general || false;
+      }
+    }
+    return type === LogType.SETS ? true : DebugLogger.debugEnabled;
   }
 
 }

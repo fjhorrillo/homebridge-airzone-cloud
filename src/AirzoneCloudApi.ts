@@ -2,7 +2,7 @@
  * AirzoneCloud: represent the AirzoneCloud API.
  */
 
-import { AirzoneCloudHomebridgePlatform } from './platform';
+import { AirzoneCloudHomebridgePlatform, LogType } from './platform';
 
 import fetch from 'node-fetch';
 import { AirzoneCloudSocket } from './AirzoneCloudSocket';
@@ -11,6 +11,7 @@ import { API_LOGIN, API_REFRESH_TOKEN, API_INSTALLATIONS, API_DEVICES, API_USER 
 import { URL, URLSearchParams } from 'url';
 import { Installation, Webserver, Units, User, LogedUser, SetpointAir } from './interface/airzonecloud';
 import { DeviceConfig, DeviceMode, DeviceStatus, Error } from './interface/airzonecloud';
+import { LogLevel } from 'homebridge';
 
 enum HTTPMethod {
   POST = 'POST',
@@ -174,13 +175,13 @@ export class AirzoneCloudApi {
       headers: headers,
       body: json,
     };
-    this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
-      `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
+    this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', `Request: ${options.method} ${options.url}` +
+      `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}`);
     const response = await fetch(options.url.toString(), options);
     if (response && response.ok) {
       if (response.status !== 204) {
         const data = await response.json();
-        this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)}\x1b[0m`);
+        this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `Response: ${JSON.stringify(data)}`);
         return data;
       }
     } else if (response.status === 401 && this._refreshToken && (await this.refreshToken() || await this._login())) {
@@ -194,9 +195,9 @@ export class AirzoneCloudApi {
       const data = await response.json() as Error;
       this.platform.log.error(`Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
         `${response.status === 400?` Response: ${JSON.stringify(data)}`:''}`);
-      this.platform.log.debug(`\x1b[32m[Fetch]\x1b[0m \x1b[33m\x1b[31m⬇\x1b[0m \x1b[33mResponse: ${JSON.stringify(data)} for \x1b[0m` +
-        `\x1b[34m⬆\x1b[0m \x1b[33mRequest: ${options.method} ${options.url}` +
-        `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}\x1b[0m`);
+      this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `Response: ${JSON.stringify(data)} for ` +
+        `\x1b[34m⬆\x1b[0m Request: ${options.method} ${options.url}` +
+        `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}`);
       throw new Error(data.msg);
     }
   }
