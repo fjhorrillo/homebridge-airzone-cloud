@@ -119,6 +119,7 @@ export class AirzoneCloudHomebridgePlatform implements DynamicPlatformPlugin {
       this,
       (this.config as AirzoneCloudPlatformConfig).login.email,
       (this.config as AirzoneCloudPlatformConfig).login.password,
+      (this.config as AirzoneCloudPlatformConfig).cache,
       (this.config as AirzoneCloudPlatformConfig).user_agent,
       (this.config as AirzoneCloudPlatformConfig).custom_base_url ?
         (this.config as AirzoneCloudPlatformConfig).custom_base_url : (this.config as AirzoneCloudPlatformConfig).system,

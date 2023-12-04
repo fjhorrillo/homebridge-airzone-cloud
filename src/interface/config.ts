@@ -25,6 +25,10 @@ export interface AirzoneCloudPlatformConfig extends PlatformConfig {
   login: User;
   debug: Debug;
   auto_off: boolean;
+  cache: {
+    max: number;
+    ttl: number;
+  };
   user_agent: string;
   custom_base_url: string;
 }
@@ -68,6 +72,8 @@ export class AirzoneCloudPlatformConfig implements PlatformConfig {
 
     const validDebug = evaluateAll(platform, ['boolean', 'object'], 'debug', cast.debug);
     const validAutoOff = evaluate(platform, 'boolean', 'auto_off', cast.auto_off);
+    const validCache = cast.cache ? evaluate(platform, 'number', 'cache.max', cast.cache?.max) &&
+      evaluate(platform, 'number', 'cache.ttl', cast.cache?.ttl) : true;
     const validUserAgent = evaluate(platform, 'string', 'user_agent', cast.user_agent);
     const validSystem = evaluate(platform, 'string', 'system', cast.system);
 
@@ -77,7 +83,7 @@ export class AirzoneCloudPlatformConfig implements PlatformConfig {
     }
     const validUser = User.isValid(platform, cast.login);
 
-    return validDebug && validAutoOff && validUserAgent && validSystem && validUser;
+    return validDebug && validAutoOff && validCache && validUserAgent && validSystem && validUser;
   }
 
   public static toString(platform: AirzoneCloudHomebridgePlatform): string {

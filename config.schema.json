@@ -92,6 +92,26 @@
         "type": "boolean",
         "default": true
       },
+      "cache": {
+        "title": "Cache",
+        "type": "object",
+        "properties": {
+          "max": {
+            "title": "Maximum",
+            "description": "Maximum number of items in cache.",
+            "type": "number",
+            "required": true,
+            "default": "1000"
+          },
+          "ttl": {
+            "title": "TTL",
+            "description": "Time to live in milliseconds",
+            "type": "number",
+            "required": true,
+            "default": "10000"
+          }
+        }
+      },
       "user_agent": {
         "title": "User Agent",
         "description": "Allow to change default user agent if set.",
@@ -204,8 +224,29 @@
             }
           ]
         },
-
         "auto_off",
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "title": "Cache",
+          "description": "Cache configuration for GET requests.",
+          "items": [
+            {
+              "type": "flex",
+              "flex-flow": "column",
+              "items": [
+                "cache.max"
+              ]
+            },
+            {
+              "type": "flex",
+              "flex-flow": "column",
+              "items": [
+                "cache.ttl"
+              ]
+            }
+          ]
+        },
         "user_agent",
         "custom_base_url"
       ]

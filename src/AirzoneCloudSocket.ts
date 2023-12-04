@@ -41,7 +41,7 @@ export class AirzoneCloudSocket {
       },
       autoConnect: false,
     });
-    this.platform.log.debug(`Websocket: ${JSON.stringify(this.userSocket.io.opts)}`);
+    this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, `Websocket: ${JSON.stringify(this.userSocket.io.opts)}`);
   }
 
   /* Starting to listen to the events of an installation */
@@ -56,22 +56,23 @@ export class AirzoneCloudSocket {
           this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
           switch(data._id) {
             case 'tooManyConnections':
-              this.platform.log.error('Error in listenInstallation');
+              this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Error in listenInstallation');
               return reject(new Error('tooManyConnections'));
             case 'notAuthorized':
               return reject(new Error('notAuthorized'));
             default:
-              this.platform.log.error(`Error in listenInstallation ${data}`);
+              this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, `Error in listenInstallation ${data}`);
               AirzoneCloudSocket.reconnectAttemps++;
               if (AirzoneCloudSocket.reconnectAttemps <= 5) {
-                this.platform.log.info(`Reconnection attempt ${AirzoneCloudSocket.reconnectAttemps}`);
+                this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO,
+                  `Reconnection attempt ${AirzoneCloudSocket.reconnectAttemps}`);
 
                 this.disconnectSocket();
                 await this.connectUserSocket(this.jwt);
                 await this.listenInstallation(installationId);
               } else {
                 AirzoneCloudSocket.reconnectAttemps = 0; // The attempt counter is reset
-                this.platform.log.error('Error trying to reconnect from listenInstallation');
+                this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Error trying to reconnect from listenInstallation');
               }
           }
         } else {
@@ -79,7 +80,7 @@ export class AirzoneCloudSocket {
           this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `[${JSON.stringify(data)}]`);
         }
         await new Promise<boolean>(resolver => this.listenFinished = resolver);
-        this.platform.log.info('The installation status was fully received');
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO, 'The installation status was fully received');
         return resolve(this.listenInstallationDevices);
       });
     });
@@ -103,14 +104,15 @@ export class AirzoneCloudSocket {
             default:
               AirzoneCloudSocket.reconnectAttemps++;
               if (AirzoneCloudSocket.reconnectAttemps <= 5) {
-                this.platform.log.info(`Reconnection attempt ${AirzoneCloudSocket.reconnectAttemps}`);
+                this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO,
+                  `Reconnection attempt ${AirzoneCloudSocket.reconnectAttemps}`);
 
                 this.disconnectSocket();
                 await this.connectUserSocket(this.jwt);
                 await this.listenWebserver(webserverId);
               } else {
                 AirzoneCloudSocket.reconnectAttemps = 0; // The attempt counter is reset
-                this.platform.log.error('Error trying to reconnect from listenWebserver');
+                this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Error trying to reconnect from listenWebserver');
               }
           }
         } else {
@@ -132,7 +134,7 @@ export class AirzoneCloudSocket {
           return reject(new Error(`Error sending 'clear_listeners' message. ${JSON.stringify(data)}`));
         } else {
           if (!refresh) {
-            this.platform.log.debug('Cleaned cached installationId and webserverId');
+            this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, 'Cleaned cached installationId and webserverId');
             this.listeningInstallationId = undefined;
             this.listeningWebserverId = undefined;
           }
@@ -155,7 +157,7 @@ export class AirzoneCloudSocket {
           },
         },
       };
-      this.platform.log.debug(`Websocket: ${JSON.stringify(this.userSocket.io.opts)}`);
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, `Websocket: ${JSON.stringify(this.userSocket.io.opts)}`);
     }
   }
 
@@ -213,7 +215,7 @@ export class AirzoneCloudSocket {
       });
 
       this.userSocket.on('connect', async () => {
-        this.platform.log.info('Websocket connected');
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO, 'Websocket connected');
         await this.refreshListeners();
         resolve(true);
       });
@@ -221,24 +223,24 @@ export class AirzoneCloudSocket {
       // The disconnect event takes the user out of the socket.
       // It may be because all the sessions have been closed or because the user has been deleted. Cleansed.
       this.userSocket.on('disconnect', async error => {
-        this.platform.log.debug(`Disconnect: ${JSON.stringify(error)}`);
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, `Disconnect: ${JSON.stringify(error)}`);
         if (error === 'io server disconnect') {
           try {
             // update jwt token
             this._connect(await this.platform.airzoneCloudApi.refreshToken());
             await this.refreshListeners();
           } catch (error) {
-            this.platform.log.error(`Error in disconnect ${error}`);
+            this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, `Error in disconnect ${error}`);
           }
         } else {
-          this.platform.log.error('Disconnect due to red disconnection');
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Disconnect due to red disconnection');
         }
       });
 
       this.userSocket.on('error', async error => {
-        this.platform.log.error(`Socket connect error ${JSON.stringify(error)}`);
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, `Socket connect error ${JSON.stringify(error)}`);
         if(error['description'] === 401) {
-          this.platform.log.error('Error 401 socketservice');
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Error 401 socketservice');
           try {
             this._updateToken(await this.platform.airzoneCloudApi.refreshToken());
           } catch (error) {
@@ -246,9 +248,9 @@ export class AirzoneCloudSocket {
             reject(new Error(`socketConnectError ${error}`));
           }
         } else {
-          this.platform.log.error('Disconnect due to red disconnection');
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Disconnect due to red disconnection');
           if(error['type'] === 'TransportError') {
-            this.platform.log.debug('Disconnect for transportError');
+            this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, 'Disconnect for transportError');
           }
           this.disconnectSocket();
           reject(new Error('socketConnectError'));
@@ -256,7 +258,7 @@ export class AirzoneCloudSocket {
       });
 
       this.userSocket.on('reconnect', async attempt => {
-        this.platform.log.info(`Reconected after ${attempt} attempt(s)`);
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO, `Reconected after ${attempt} attempt(s)`);
         this.refreshListeners();
       });
 
@@ -265,14 +267,14 @@ export class AirzoneCloudSocket {
           this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', `["${this.jwt}"]`);
           callback(this.jwt);
         }
-        this.platform.log.debug('authenticate event, replied with a valid token');
+        this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, 'authenticate event, replied with a valid token');
       });
     });
   }
 
   /* Disconnect from user socket */
   public disconnectSocket() {
-    this.platform.log.info('Disconnect socket requested', this.userSocket);
+    this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO, 'Disconnect socket requested', this.userSocket);
     this.userSocket.close();
   }
 
@@ -282,11 +284,12 @@ export class AirzoneCloudSocket {
     await this.clearListeners(true);
 
     if (this.listeningInstallationId) {
-      this.platform.log.debug(`Refresh listener for installation ${this.listeningInstallationId}`);
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG,
+        `Refresh listener for installation ${this.listeningInstallationId}`);
       // Reconnect to get the updated information
       await this.listenInstallation(this.listeningInstallationId);
     } else if (this.listeningWebserverId) {
-      this.platform.log.debug(`Refresh listener for webserver ${this.listeningWebserverId}`);
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.DEBUG, `Refresh listener for webserver ${this.listeningWebserverId}`);
       // Reconnect to get the updated information
       await this.listenWebserver(this.listeningWebserverId);
     }
@@ -318,7 +321,7 @@ export class AirzoneCloudSocket {
         }
       });
     } else {
-      this.platform.log.warn(`[${eventName}] Event not implemented. ${JSON.stringify(event)}`);
+      this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.WARN, `[${eventName}] Event not implemented. ${JSON.stringify(event)}`);
     }
   }
 
