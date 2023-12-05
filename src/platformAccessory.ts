@@ -19,6 +19,11 @@ enum TemperatureDisplayUnits {
   FAHRENHEIT = 1
 }
 
+enum On {
+  OFF = 0,
+  ON = 1
+}
+
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -26,6 +31,7 @@ enum TemperatureDisplayUnits {
  */
 export class AirzoneCloudPlatformAccessory {
   private service: Service;
+  private serviceFan?: Service;
   private device: DeviceType;
 
   constructor(
@@ -87,6 +93,26 @@ export class AirzoneCloudPlatformAccessory {
     if (this.device.status.humidity) {
       this.service.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
         .onGet(this.getCurrentRelativeHumidity.bind(this));    // GET - bind to the `getCurrentRelativeHumidity` method below
+    }
+
+    // If Fan mode available instance a Fan accessory
+    if (this.device.status.mode_available?.includes(DeviceMode.FAN)) {
+      // get the Fan service if it exists, otherwise create a new Fan service
+      // you can create multiple services for each accessory
+      this.serviceFan = this.accessory.getService(this.platform.Service.Fan) ||
+                    this.accessory.addService(this.platform.Service.Fan, accessory.displayName, `${accessory.UUID}-FAN`);
+
+      // set the service name, this is what is displayed as the default name on the Home app
+      // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
+      this.serviceFan.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.name);
+
+      // each service must implement at-minimum the "required characteristics" for the given service type
+      // see https://developers.homebridge.io/#/service/Fan
+
+      // register handlers for the On Characteristic
+      this.serviceFan.getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.setOn.bind(this))     // SET - bind to the `setOn` method below
+        .onGet(this.getOn.bind(this));    // GET - bind to the `getOn` method below
     }
 
     /**
@@ -261,6 +287,26 @@ export class AirzoneCloudPlatformAccessory {
     return currentRelativeHumidity;
   }
 
+  async getOn(): Promise<CharacteristicValue> { // Update is async by websocket
+    const startTime = Date.now().valueOf();
+    // On => 0:OFF, 1:ON
+    await this.refresh();
+    const on = this.device.status.power ? (function(mode: DeviceMode) {
+      switch(mode) {
+        case DeviceMode.FAN:
+          return On.ON;
+        default:
+          return On.OFF;
+      }
+    })(this.device.status.mode) : On.OFF;
+
+    const time = (Date.now().valueOf() - startTime)/1000;
+    this.platform.log.logFormatted(LogType.GETS, LogLevel.DEBUG, `${this.device.name}: Get Characteristic On -> ` +
+      `${On[on]}[${on}] in ${time}s`);
+
+    return on;
+  }
+
   /**
    * Handle "SET" requests from HomeKit
    * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
@@ -335,6 +381,45 @@ export class AirzoneCloudPlatformAccessory {
     const time = (Date.now().valueOf() - startTime)/1000;
     this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TemperatureDisplayUnits -> ` +
       `${TemperatureDisplayUnits[temperatureDisplayUnits]}[${temperatureDisplayUnits}] in ${time}s`);
+  }
+
+  async setOn(value: CharacteristicValue) {
+    const startTime = Date.now().valueOf();
+    // On => 0:OFF, 1:ON
+    const on = value as On;
+
+    // transform
+    const mode = (function(mode: On) {
+      switch (mode) {
+        case On.OFF: return DeviceMode.STOP;
+        case On.ON: return DeviceMode.FAN;
+        default: return DeviceMode.STOP;
+      }
+    })(on);
+    const power = mode === DeviceMode.FAN;
+
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic On -> ` +
+      `Mode from ${DeviceMode[this.device.status.mode]}[${this.device.status.mode}] to ${DeviceMode[mode]}[${mode}], ` +
+      `Power from ${this.device.status.power?'ON':'OFF'}[${this.device.status.power}] to ${power?'ON':'OFF'}[${power}] and ` +
+      `AllOtherOff[${this.platform.airzoneCloudApi.allOtherOff(this.device.id)}] ` +
+      `with AutoOff[${(this.platform.config as AirzoneCloudPlatformConfig).auto_off}]`);
+
+    // Switch mode to stop only if all zones are off
+    if (mode !== this.device.status.mode) { // only if mode is changed
+      if (mode !== DeviceMode.STOP || (mode === DeviceMode.STOP &&
+        (this.platform.config as AirzoneCloudPlatformConfig).auto_off &&
+        this.platform.airzoneCloudApi.allOtherOff(this.device.id))) {
+        // mode is changed through group
+        this.platform.airzoneCloudApi.setGroupMode(this.device.installationId, this.device.groupId, mode).then(() => this.refresh());
+      }
+    }
+    if (power !== this.device.status.power) { // only if power is changed
+      this.platform.airzoneCloudApi.setDevicePower(this.device.installationId, this.device.id, power).then(() => this.refresh());
+    }
+
+    const time = (Date.now().valueOf() - startTime)/1000;
+    this.platform.log.logFormatted(LogType.SETS, LogLevel.INFO, `${this.device.name}: Set Characteristic TargetHeatingCoolingState -> ` +
+      `${On[on]}[${on}] in ${time}s`);
   }
 
   /**
