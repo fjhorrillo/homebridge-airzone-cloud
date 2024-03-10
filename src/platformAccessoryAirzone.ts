@@ -95,8 +95,9 @@ export class AirzoneCloudPlatformAccessoryAirzone {
      * the `updateCharacteristic` method.
      *
      */
-    /*let motionDetected = false;
-    setInterval(() => {
+    /*let motionDetected = false;*/
+    setInterval(async () => {
+      /*
       // EXAMPLE - inverse the trigger
       motionDetected = !motionDetected;
 
@@ -106,7 +107,11 @@ export class AirzoneCloudPlatformAccessoryAirzone {
 
       this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
       this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);*/
+      */
+      // Refres data from Airzone Cloud
+      await this.zone.refresh();
+      this.platform.log.debug(`${this.zone.name}: Refresh zone`);
+    }, 10000);
   }
 
   /**

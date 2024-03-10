@@ -88,8 +88,9 @@ export class AirzoneCloudPlatformAccessoryDaikin {
      * the `updateCharacteristic` method.
      *
      */
-    /*let motionDetected = false;
-    setInterval(() => {
+    /*let motionDetected = false;*/
+    setInterval(async () => {
+      /*
       // EXAMPLE - inverse the trigger
       motionDetected = !motionDetected;
 
@@ -99,7 +100,11 @@ export class AirzoneCloudPlatformAccessoryDaikin {
 
       this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
       this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);*/
+      */
+      // Refres data from Airzone Cloud
+      await this.device.refresh();
+      this.platform.log.debug(`${this.device.name}: Refresh device`);
+    }, 10000);
   }
 
   /**
