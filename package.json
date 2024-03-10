@@ -30,9 +30,10 @@
     "DKN"
   ],
   "dependencies": {
+    "cache-manager": "^5.3.1",
     "node-fetch": "^2.6.7",
     "socket.io-client": "^4.5.4",
-    "cache-manager": "^5.3.1"
+    "ts-semaphore": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^16.10.9",
