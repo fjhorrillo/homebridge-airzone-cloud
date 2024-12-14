@@ -239,8 +239,8 @@ export class AirzoneCloudSocket {
 
       this.userSocket.on('error', async error => {
         this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, `Socket connect error ${JSON.stringify(error)}`);
-        if(error['description'] === 401) {
-          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Error 401 socketservice');
+        if(error['description'] === 401 || error['description'] === 'notAuthorized') {
+          this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.ERROR, 'Error unauthorized socketservice');
           try {
             this._updateToken(await this.platform.airzoneCloudApi.refreshToken());
           } catch (error) {
@@ -274,7 +274,8 @@ export class AirzoneCloudSocket {
 
   /* Disconnect from user socket */
   public disconnectSocket() {
-    this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO, 'Disconnect socket requested', this.userSocket);
+    this.platform.log.logFormatted(LogType.WEBSOCKET, LogLevel.INFO, 'Disconnect socket requested',
+      `Attemps: ${AirzoneCloudSocket.reconnectAttemps}`);
     this.userSocket.close();
   }
 

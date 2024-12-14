@@ -335,6 +335,10 @@ export class DebugLogger implements Logger {
     this.debug(`Debug mode on: ${JSON.stringify(debug)}`);
   }
 
+  success(message: string, ...parameters: unknown[]): void {
+    this._log.info(message, ...parameters);
+  }
+
   info(message: string, ...parameters: unknown[]): void {
     this._log.info(message, ...parameters);
   }
