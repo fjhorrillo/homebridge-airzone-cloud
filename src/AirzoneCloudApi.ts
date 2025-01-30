@@ -111,14 +111,14 @@ export class AirzoneCloudApi {
   public async refreshToken(): Promise<string | undefined> {
     if (this._refreshToken) {
       const data = await this._get(`${API_REFRESH_TOKEN}/${this._refreshToken}`);
-      if (data.token) {
+      if (data && data.token) {
         this._token = data.token;
         this._refreshToken = data.refreshToken;
         this.platform.log.info('Refreshed token successfully');
 
         return data.token;
       } else {
-        this.platform.log.error(`Refreshed token failed. ${JSON.stringify(data)}`);
+        this.platform.log.error('Refreshed token failed.');
       }
     }
     return this._token = undefined;
@@ -126,7 +126,14 @@ export class AirzoneCloudApi {
 
   /* Do a http GET request on an api endpoint */
   private async _get(api_endpoint: string, params={}) {
-    return await this._request(HTTPMethod.GET, api_endpoint, params);
+    if (api_endpoint.startsWith(API_REFRESH_TOKEN)) { // Exception for token refresh
+      await this._request(HTTPMethod.GET, api_endpoint, params);
+    } else {
+      // Serialize requests with a semaphore
+      return this.limit.use(async () => {
+        return await this._request(HTTPMethod.GET, api_endpoint, params);
+      });
+    }
   }
 
   /* Do a http POST request on an api endpoint */
@@ -191,42 +198,48 @@ export class AirzoneCloudApi {
     };
     this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[34m⬆\x1b[0m', `Request: ${options.method} ${options.url}` +
       `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}`);
-    return this.limit.use(async () => {
-      let dataCached;
-      if (method === HTTPMethod.GET && (dataCached = await this._cache.get(`${method} ${url.toString()}`))) {
-        this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', '\x1b[31m[Restored from cache]\x1b[0m',
-          `Response: ${JSON.stringify(dataCached)}`);
-        return dataCached;
-      } else {
-        const response = await fetch(options.url.toString(), options);
-        if (response && response.ok) {
-          if (response.status !== 204) {
-            const data = await response.json();
-            if (method === HTTPMethod.GET) {
-              this._cache.set(`${method} ${url.toString()}`, data);
-            }
-            this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m',
-              method === HTTPMethod.GET ? '\x1b[31m[Stored in cache]\x1b[0m' : '', `Response: ${JSON.stringify(data)}`);
-            return data;
+    let dataCached;
+    if (method === HTTPMethod.GET && (dataCached = await this._cache.get(`${method} ${url.toString()}`))) {
+      this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', '\x1b[31m[Restored from cache]\x1b[0m',
+        `Response: ${JSON.stringify(dataCached)}`);
+      return dataCached;
+    } else {
+      const response = await fetch(options.url.toString(), options);
+      if (response && response.ok) {
+        if (response.status !== 204) {
+          const data = await response.json();
+          if (method === HTTPMethod.GET) {
+            this._cache.set(`${method} ${url.toString()}`, data);
           }
-        } else if (response.status === 401 && this._refreshToken && (await this.refreshToken() || await this._login())) {
-          // reconect websocket
-          this._airzoneCloudSocket.disconnectSocket();
-          await this._airzoneCloudSocket.connectUserSocket(this._token);
-          this.platform.log.logFormatted(LogType.FETCH, LogLevel.INFO, 'Websocket reconnected');
-          return await this._request(method, api_endpoint, params, headers, json);
-        } else {
-          const data = await response.json() as Error;
-          this.platform.log.logFormatted(LogType.FETCH, LogLevel.ERROR,
-            `Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
-            `${response.status === 400?` Response: ${JSON.stringify(data)}`:''}`);
-          this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `Response: ${JSON.stringify(data)} for ` +
-            `\x1b[34m⬆\x1b[0m Request: ${options.method} ${options.url}` +
-            `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}`);
-          throw new Error(data.msg);
+          this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m',
+            method === HTTPMethod.GET ? '\x1b[31m[Stored in cache]\x1b[0m' : '', `Response: ${JSON.stringify(data)}`);
+          return data;
         }
+      } else if (response.status === 401) {
+        // refresh token
+        if (this._refreshToken) {
+          if (!await this.refreshToken()) {
+          // relogin
+            await this._login();
+          }
+        }
+        // reconect websocket
+        await this._airzoneCloudSocket.disconnectSocket();
+        await this._airzoneCloudSocket.connectUserSocket(this._token);
+        this.platform.log.logFormatted(LogType.FETCH, LogLevel.INFO, 'Websocket reconnected');
+        return await this._request(method, api_endpoint, params, headers, json);
+      } else {
+        const data = await response.json() as Error;
+        this.platform.log.logFormatted(LogType.FETCH, LogLevel.ERROR,
+          `Error calling to AirzoneCloud. Status: ${response.status} ${response.statusText} ` +
+      `${response.status === 400?` Response: ${JSON.stringify(data)}`:''}`);
+        this.platform.log.logFormatted(LogType.FETCH, LogLevel.DEBUG, '\x1b[31m⬇\x1b[0m', `Response: ${JSON.stringify(data)} for ` +
+      `\x1b[34m⬆\x1b[0m Request: ${options.method} ${options.url}` +
+      `${json?` body=${JSON.stringify(JSON.parse(options.body), this._obfusked)}`:''}`);
+        return data;
+        //throw new Error(data.msg);
       }
-    });
+    }
   }
 
   /* Allow obfusk sensitive data */

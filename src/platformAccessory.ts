@@ -457,7 +457,7 @@ export class AirzoneCloudPlatformAccessory {
   private async refresh() {
     const startTime = Date.now().valueOf();
     try {
-      this.platform.log.debug(`${this.device.name}: Starting refresh device statis`);
+      this.platform.log.debug(`${this.device.name}: Starting refresh device status`);
       const status = await this.platform.airzoneCloudApi.getDeviceStatus(this.device.id, this.device.installationId);
       if (status) {
         const user = await this.platform.airzoneCloudApi.getUser();
@@ -465,10 +465,10 @@ export class AirzoneCloudPlatformAccessory {
         this.device.status = status;
 
         const time = (Date.now().valueOf() - startTime)/1000;
-        this.platform.log.debug(`${this.device.name}: Finished refresh device statis in ${time}s`);
+        this.platform.log.debug(`${this.device.name}: Finished refresh device status in ${time}s`);
       }
     } catch(error) {
-      this.platform.log.debug(`${this.device.name}: Error on refresh device statis. ${error}`);
+      this.platform.log.debug(`${this.device.name}: Error on refresh device status. ${error}`);
     }
   }
 }
